@@ -325,8 +325,8 @@ export function SetupWizard({ onComplete, hueConfigured, nanoleafConfigured }: S
   };
 
   return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-zinc-900 rounded-3xl max-w-md w-full p-8">
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4">
+      <div className="bg-zinc-900 w-full h-full sm:h-auto sm:max-w-md sm:rounded-3xl rounded-t-3xl p-6 sm:p-8 overflow-y-auto">
         {renderStep()}
       </div>
     </div>
