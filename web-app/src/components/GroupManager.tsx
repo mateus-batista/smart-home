@@ -7,7 +7,7 @@ import { EmptyState, EmptyStateIcons } from './ui/EmptyState';
 import { StatusDot } from './ui/StatusDot';
 import { ToggleSwitch } from './ui/ToggleSwitch';
 import { ShadeOpenCloseButtons } from './ui/ShadeOpenCloseButtons';
-import { InlineSlider } from './ui/Slider';
+import { Slider } from './ui/Slider';
 import { LightControl } from './LightControl';
 import { ShadeControl } from './ShadeControl';
 
@@ -433,9 +433,12 @@ export function GroupManager({
 
               {/* Group-level controls */}
               {groupDevices.length > 0 && (
-                <div className="px-4 pb-4 space-y-3 border-b border-zinc-800 shrink-0">
+                <div className="px-4 sm:px-5 py-4 space-y-5 border-b border-zinc-800 shrink-0 bg-zinc-800/30">
+                  {/* Power / Open-Close control */}
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-zinc-400">All {isShadeGroup ? 'Shades' : 'Lights'}</span>
+                    <span className="text-lg font-medium">
+                      {isShadeGroup ? 'All Shades' : 'Power'}
+                    </span>
                     {isShadeGroup ? (
                       <ShadeOpenCloseButtons
                         visualOpenness={displayGroupBrightness}
@@ -443,7 +446,7 @@ export function GroupManager({
                         onClose={handleGroupClose}
                         disabled={groupDevices.length === 0}
                         loading={isGroupControlling}
-                        size="sm"
+                        size="lg"
                       />
                     ) : (
                       <ToggleSwitch
@@ -451,19 +454,26 @@ export function GroupManager({
                         onChange={handleGroupToggle}
                         disabled={groupDevices.length === 0}
                         loading={isGroupControlling}
+                        size="lg"
                       />
                     )}
                   </div>
-                  <InlineSlider
+
+                  {/* Brightness / Position slider */}
+                  <Slider
                     value={displayGroupBrightness}
                     onChange={handleGroupBrightnessChange}
                     onCommit={handleGroupBrightnessCommit}
                     min={0}
                     max={100}
-                    disabled={groupDevices.length === 0}
+                    disabled={groupDevices.length === 0 || (!isShadeGroup && !groupState.anyOn)}
                     label={isShadeGroup ? 'Position' : 'Brightness'}
                     valueDisplay={`${displayGroupBrightness}%`}
-                    fillColor={isShadeGroup ? 'rgba(59, 130, 246, 0.5)' : 'rgba(255,255,255,0.4)'}
+                    gradient={isShadeGroup
+                      ? 'linear-gradient(to right, #374151, #3b82f6, #87ceeb)'
+                      : undefined
+                    }
+                    hints={isShadeGroup ? { start: 'Closed', end: 'Open' } : undefined}
                   />
                 </div>
               )}
