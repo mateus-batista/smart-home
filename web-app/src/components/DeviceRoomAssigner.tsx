@@ -50,51 +50,38 @@ export function DeviceRoomAssigner({
   const availableRooms = rooms.filter((room) => room.id !== device.roomId);
 
   return (
-    <div 
-      className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4"
+    <div
+      className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-end sm:items-center justify-center sm:p-4"
       onClick={onClose}
     >
-      <div 
-        className="bg-zinc-900 rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl border border-zinc-800"
+      <div
+        className="bg-zinc-900 w-full sm:max-w-sm sm:rounded-3xl rounded-t-3xl overflow-hidden shadow-2xl border-t sm:border border-zinc-800 max-h-[90vh] sm:max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header with device info */}
-        <div className="p-6 bg-gradient-to-br from-zinc-800 to-zinc-900">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-zinc-700 flex items-center justify-center">
-              {device.type === 'hue' ? (
-                <svg className="w-7 h-7 text-amber-400" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7zm2 15H10v-1h4v1zm0-2H10v-1h4v1zm1.5-4.59l-.5.34V12h-6v-1.25l-.5-.34A4.996 4.996 0 0 1 7 9c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.62-.78 3.14-2.5 4.41z" />
-                </svg>
-              ) : (
-                <svg className="w-7 h-7 text-green-400" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2L2 19h20L12 2zm0 4l6.5 11h-13L12 6z" />
-                </svg>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <h2 className="text-lg font-bold text-white truncate">{device.name}</h2>
-              <p className="text-sm text-zinc-400 capitalize">
-                {device.type === 'hue' ? 'Philips Hue' : 'Nanoleaf'}
-              </p>
-            </div>
-            <CloseButton onClick={onClose} />
+        {/* Header */}
+        <div className="p-4 sm:p-5 border-b border-zinc-800 flex items-center justify-between shrink-0">
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-white truncate">{device.name}</h2>
+            <p className="text-xs text-zinc-500">
+              {device.type === 'hue' ? 'Philips Hue' : device.type === 'nanoleaf' ? 'Nanoleaf' : 'SwitchBot'}
+            </p>
           </div>
+          <CloseButton onClick={onClose} />
         </div>
 
         {/* Current room */}
         {device.roomId && device.roomName && (
-          <div className="px-6 py-4 border-b border-zinc-800">
-            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-3">Current Room</p>
-            <div className="flex items-center justify-between p-3 bg-green-500/10 border border-green-500/30 rounded-xl">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">{getRoomIcon(device.roomName)}</span>
-                <span className="font-medium text-white">{device.roomName}</span>
+          <div className="px-4 py-3 border-b border-zinc-800 shrink-0">
+            <p className="text-xs font-medium text-zinc-500 mb-2">Current Room</p>
+            <div className="flex items-center justify-between p-2.5 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">{getRoomIcon(device.roomName)}</span>
+                <span className="font-medium text-white text-sm">{device.roomName}</span>
               </div>
               <button
                 onClick={handleRemove}
                 disabled={isLoading === 'remove'}
-                className="py-1.5 px-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+                className="py-1 px-2.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5"
               >
                 {isLoading === 'remove' ? (
                   <LoadingSpinner size="sm" color="red" />
@@ -107,39 +94,39 @@ export function DeviceRoomAssigner({
         )}
 
         {/* Room selection */}
-        <div className="p-6">
-          <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-3">
-            {device.roomId ? 'Move to Another Room' : 'Assign to Room'}
+        <div className="flex-1 overflow-y-auto p-4">
+          <p className="text-xs font-medium text-zinc-500 mb-2">
+            {device.roomId ? 'Move to' : 'Assign to Room'}
           </p>
-          
+
           {availableRooms.length === 0 ? (
             <EmptyState
               icon={EmptyStateIcons.rooms}
-              title="No other rooms available"
-              description="Create a room from the main view"
+              title="No rooms available"
+              description="Create a room first"
             />
           ) : (
-            <div className="space-y-2 max-h-[40vh] overflow-y-auto">
+            <div className="space-y-1.5">
               {availableRooms.map((room) => (
                 <button
                   key={room.id}
                   onClick={() => handleAssign(room.id)}
                   disabled={isLoading !== null}
-                  className="w-full p-4 bg-zinc-800 hover:bg-zinc-700 disabled:hover:bg-zinc-800 rounded-xl text-left transition-all flex items-center justify-between group disabled:opacity-75"
+                  className="w-full p-3 bg-zinc-800 hover:bg-zinc-700 disabled:hover:bg-zinc-800 rounded-xl text-left transition-all flex items-center justify-between group disabled:opacity-75"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">{getRoomIcon(room.name)}</span>
-                    <span className="font-medium text-white group-hover:text-green-400 transition-colors">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-lg">{getRoomIcon(room.name)}</span>
+                    <span className="font-medium text-white text-sm group-hover:text-blue-400 transition-colors">
                       {room.name}
                     </span>
                   </div>
                   {isLoading === room.id ? (
-                    <LoadingSpinner size="md" color="green" />
+                    <LoadingSpinner size="sm" color="blue" />
                   ) : (
-                    <svg 
-                      className="w-5 h-5 text-zinc-600 group-hover:text-green-400 group-hover:translate-x-1 transition-all" 
-                      fill="none" 
-                      viewBox="0 0 24 24" 
+                    <svg
+                      className="w-4 h-4 text-zinc-600 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all"
+                      fill="none"
+                      viewBox="0 0 24 24"
                       stroke="currentColor"
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -152,10 +139,10 @@ export function DeviceRoomAssigner({
         </div>
 
         {/* Footer */}
-        <div className="px-6 pb-6">
+        <div className="p-4 border-t border-zinc-800 shrink-0">
           <button
             onClick={onClose}
-            className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 rounded-xl font-medium text-zinc-300 transition-colors"
+            className="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-sm font-medium text-zinc-300 transition-colors"
           >
             Cancel
           </button>
