@@ -49,9 +49,9 @@ def _load_model():
 
     _model, _tokenizer = load(settings.llm_model)
 
-    # Set ChatML template if not present (needed for Hermes models)
+    # Set ChatML template if not present (fallback for models without one)
     if _tokenizer.chat_template is None:
-        logger.info("Setting ChatML chat template for Hermes model")
+        logger.info("Setting default ChatML chat template")
         _tokenizer.chat_template = (
             "{% for message in messages %}"
             "{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}"
@@ -232,11 +232,11 @@ async def chat(
     context_json = json.dumps(smart_home_context, indent=2, ensure_ascii=False)
     logger.debug(f"Smart home context: {context_json[:300]}...")
 
-    # Format tools for Hermes
+    # Format tools as JSON for the system prompt
     tools_json = json.dumps([t["function"] for t in ALL_TOOLS], indent=2)
 
-    # Build Hermes-style system prompt with structured context and tools
-    hermes_system_prompt = f"""{SYSTEM_PROMPT}
+    # Build system prompt with context and tools
+    system_prompt_with_context = f"""{SYSTEM_PROMPT}
 
 {TOOL_INSTRUCTIONS}
 
@@ -260,7 +260,7 @@ When you need to call a function, return a JSON object within <tool_call></tool_
 You can call multiple tools by using multiple <tool_call> tags.
 After tool execution, provide a brief confirmation."""
 
-    messages = _build_messages(user_message, conversation_history, hermes_system_prompt)
+    messages = _build_messages(user_message, conversation_history, system_prompt_with_context)
 
     # Apply chat template
     prompt = tokenizer.apply_chat_template(
@@ -311,7 +311,7 @@ After tool execution, provide a brief confirmation."""
         # Add the assistant's response with tool calls
         messages.append({"role": "assistant", "content": response_text})
 
-        # Add tool results using the 'tool' role (Hermes format)
+        # Add tool results using the 'tool' role
         for tr in tool_results:
             tool_result_content = json.dumps({
                 "name": tr["tool"],
