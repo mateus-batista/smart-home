@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import https from 'https';
 import http from 'http';
 import fs from 'fs';
@@ -9,7 +10,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Configuration
 const config = {
-  port: parseInt(process.env.PROXY_PORT || '443'),
+  port: parseInt(process.env.PROXY_PORT || '8443'),
   webApp: process.env.WEB_APP_URL || 'http://localhost:5173',
   server: process.env.SERVER_URL || 'http://localhost:3001',
   voiceAssistant: process.env.VOICE_ASSISTANT_URL || 'http://localhost:3002',
@@ -33,7 +34,7 @@ try {
 
 // Create proxy instances
 const webProxy = httpProxy.createProxyServer({ target: config.webApp, ws: true });
-const serverProxy = httpProxy.createProxyServer({ target: config.server });
+const serverProxy = httpProxy.createProxyServer({ target: config.server, ws: true });
 const voiceProxy = httpProxy.createProxyServer({ target: config.voiceAssistant, ws: true });
 
 // Error handling
@@ -68,7 +69,10 @@ const server = https.createServer(sslOptions, (req, res) => {
 server.on('upgrade', (req, socket, head) => {
   const url = req.url || '/';
 
-  if (url.startsWith('/ws')) {
+  if (url.startsWith('/ws/devices')) {
+    // Device state WebSocket (Express server)
+    serverProxy.ws(req, socket, head);
+  } else if (url.startsWith('/ws')) {
     // Voice assistant WebSocket
     voiceProxy.ws(req, socket, head);
   } else {
@@ -85,9 +89,10 @@ server.listen(config.port, '0.0.0.0', () => {
   console.log(`   Listening on: https://0.0.0.0:${config.port}`);
   console.log('');
   console.log('   Routes:');
-  console.log(`   /api/*  → ${config.server}`);
-  console.log(`   /ws     → ${config.voiceAssistant}`);
-  console.log(`   /*      → ${config.webApp}`);
+  console.log(`   /api/*       → ${config.server}`);
+  console.log(`   /ws/devices  → ${config.server} (WebSocket)`);
+  console.log(`   /ws          → ${config.voiceAssistant}`);
+  console.log(`   /*           → ${config.webApp}`);
   console.log('');
   console.log('   Access from your phone:');
   console.log(`   https://192.168.5.17:${config.port}`);

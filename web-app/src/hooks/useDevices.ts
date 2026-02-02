@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Light, DeviceState, ApiStatus } from '../types/devices';
 import * as api from '../services/api';
 
+// Re-export WebSocket-based hook as the default useDevices
+export { useDevicesWebSocket as useDevices } from './useDevicesWebSocket';
+
 /**
  * Hook to track if the browser tab is visible/active.
  * Returns false when user switches to another tab or minimizes the window.
@@ -23,7 +26,10 @@ function useTabVisibility(): boolean {
   return isVisible;
 }
 
-export function useDevices(pausePolling = false) {
+/**
+ * HTTP polling fallback hook (deprecated, use useDevices/useDevicesWebSocket instead).
+ */
+export function useDevicesPolling(pausePolling = false) {
   const [devices, setDevices] = useState<Light[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

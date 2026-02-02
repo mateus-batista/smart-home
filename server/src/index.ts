@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import { createServer } from 'http';
 import hueRoutes from './routes/hue.js';
 import nanoleafRoutes from './routes/nanoleaf.js';
 import switchbotRoutes from './routes/switchbot.js';
@@ -9,12 +10,18 @@ import * as hueService from './services/hue.js';
 import * as nanoleafService from './services/nanoleaf.js';
 import * as switchbotService from './services/switchbot.js';
 import { connectDatabase } from './services/database.js';
-import { syncDevices, getDevicesFromDb, setDeviceHidden } from './services/deviceSync.js';
+import { setDeviceHidden } from './services/deviceSync.js';
 import { migrateConfig } from './utils/migrateConfig.js';
-import type { Light } from './types/index.js';
+import { PollingManager } from './services/polling/index.js';
+import { setupWebSocket, type WebSocketBroadcaster } from './services/websocket/index.js';
 
 const app = express();
+const server = createServer(app);
 const PORT = process.env.PORT || 3001;
+
+// Initialize polling manager (singleton)
+const pollingManager = new PollingManager();
+let wsBroadcaster: WebSocketBroadcaster;
 
 // Middleware
 app.use(cors());
@@ -27,74 +34,11 @@ app.use('/api/switchbot', switchbotRoutes);
 app.use('/api/rooms', roomsRoutes);
 app.use('/api/groups', groupsRoutes);
 
-// Combined endpoint to get all devices
+// Combined endpoint to get all devices (returns cached state from polling)
 app.get('/api/devices', async (req, res) => {
   try {
-    const devices: Light[] = [];
-
-    // Get Hue lights if configured
-    if (await hueService.isConfigured()) {
-      try {
-        const hueLights = await hueService.getLights();
-        devices.push(...hueLights);
-      } catch (error) {
-        console.error('Error fetching Hue lights:', error);
-      }
-    }
-
-    // Get Nanoleaf devices
-    try {
-      const nanoleafDevices = await nanoleafService.getAllDeviceStates();
-      devices.push(...nanoleafDevices);
-    } catch (error) {
-      console.error('Error fetching Nanoleaf devices:', error);
-    }
-
-    // Get SwitchBot devices if configured
-    if (switchbotService.isConfigured()) {
-      try {
-        const switchbotDevices = await switchbotService.getAllDeviceStates();
-        devices.push(...switchbotDevices);
-      } catch (error) {
-        console.error('Error fetching SwitchBot devices:', error);
-      }
-    }
-
-    // Sync devices to database (upsert)
-    if (devices.length > 0) {
-      try {
-        await syncDevices(devices);
-      } catch (error) {
-        console.error('Error syncing devices to database:', error);
-      }
-    }
-
-    // Fetch devices from DB to include room/group info
-    try {
-      const dbDevices = await getDevicesFromDb();
-      const dbDeviceMap = new Map(dbDevices.map(d => [d.externalId, d]));
-
-      // Merge DB data with live device data
-      const enrichedDevices = devices.map(device => {
-        const dbDevice = dbDeviceMap.get(device.id);
-        return {
-          ...device,
-          roomId: dbDevice?.roomId ?? null,
-          roomName: dbDevice?.room?.name ?? null,
-          hidden: dbDevice?.hidden ?? false,
-          groups: dbDevice?.groups?.map(g => ({
-            id: g.group.id,
-            name: g.group.name,
-          })) ?? [],
-        };
-      });
-
-      res.json(enrichedDevices);
-    } catch (error) {
-      console.error('Error fetching DB device data:', error);
-      // Fall back to devices without room/group info
-      res.json(devices.map(d => ({ ...d, roomId: null, roomName: null, hidden: false, groups: [] })));
-    }
+    const devices = await pollingManager.getAllDevices();
+    res.json(devices);
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });
   }
@@ -112,6 +56,9 @@ app.put('/api/devices/:id', async (req, res) => {
     } else {
       await nanoleafService.setDeviceState(id, req.body);
     }
+
+    // Trigger immediate refresh to update cached state
+    pollingManager.triggerImmediateRefresh(id);
 
     res.json({ success: true });
   } catch (error) {
@@ -172,15 +119,19 @@ async function start() {
     // Migrate config from JSON to database if needed
     await migrateConfig();
 
+    // Set up WebSocket support
+    wsBroadcaster = setupWebSocket(server, pollingManager);
+
     const hueConfigured = await hueService.isConfigured();
     const nanoleafDevices = await nanoleafService.getDevices();
 
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
       console.log(`Smart Home server running on http://localhost:${PORT}`);
       console.log(`   Hue configured: ${hueConfigured}`);
       console.log(`   Nanoleaf devices: ${nanoleafDevices.length}`);
       console.log(`   SwitchBot configured: ${switchbotService.isConfigured()}`);
       console.log(`   Database: connected`);
+      console.log(`   WebSocket: /ws/devices`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);
