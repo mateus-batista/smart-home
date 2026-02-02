@@ -238,6 +238,8 @@ async def chat(
     # Build Hermes-style system prompt with structured context and tools
     hermes_system_prompt = f"""{SYSTEM_PROMPT}
 
+{TOOL_INSTRUCTIONS}
+
 You are also a function calling AI model. You have access to the current smart home state and available tools.
 
 <context>
