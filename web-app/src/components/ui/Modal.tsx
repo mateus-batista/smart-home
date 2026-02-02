@@ -11,6 +11,8 @@ interface ModalProps {
   closeOnBackdropClick?: boolean;
   /** Maximum width class (default: 'max-w-md') */
   maxWidth?: string;
+  /** Full screen on mobile (default: true) */
+  mobileFullScreen?: boolean;
 }
 
 export function Modal({
@@ -20,6 +22,7 @@ export function Modal({
   contentClassName = '',
   closeOnBackdropClick = true,
   maxWidth = 'max-w-md',
+  mobileFullScreen = true,
 }: ModalProps) {
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (closeOnBackdropClick && e.target === e.currentTarget) {
@@ -29,11 +32,11 @@ export function Modal({
 
   return (
     <div
-      className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 ${backdropClassName}`}
+      className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4 ${backdropClassName}`}
       onClick={handleBackdropClick}
     >
       <div
-        className={`bg-zinc-900 rounded-3xl ${maxWidth} w-full max-h-[90vh] overflow-y-auto ${contentClassName}`}
+        className={`bg-zinc-900 ${mobileFullScreen ? 'w-full h-full sm:h-auto sm:max-h-[90vh] rounded-t-3xl sm:rounded-3xl' : `rounded-3xl max-h-[90vh]`} ${maxWidth} sm:w-full overflow-y-auto ${contentClassName}`}
         onClick={(e) => e.stopPropagation()}
       >
         {children}
@@ -62,13 +65,13 @@ export function ModalHeader({
 }: ModalHeaderProps) {
   return (
     <div
-      className={`p-8 rounded-t-3xl transition-all relative ${className}`}
+      className={`p-6 sm:p-8 rounded-t-3xl transition-all relative ${className}`}
       style={style}
     >
       {showCloseButton && (
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-full bg-black/20 hover:bg-black/40 transition-colors"
+          className="absolute top-4 right-4 p-2.5 sm:p-2 rounded-full bg-black/20 hover:bg-black/40 transition-colors"
         >
           <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -86,5 +89,5 @@ interface ModalContentProps {
 }
 
 export function ModalContent({ children, className = '' }: ModalContentProps) {
-  return <div className={`p-6 space-y-6 ${className}`}>{children}</div>;
+  return <div className={`p-5 sm:p-6 pb-8 sm:pb-6 space-y-5 sm:space-y-6 ${className}`}>{children}</div>;
 }

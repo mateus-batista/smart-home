@@ -219,6 +219,7 @@ function App() {
           onAddDeviceToGroup={addDeviceToGroup}
           onRemoveDeviceFromGroup={removeDeviceFromGroup}
           onUpdateDevice={updateDevice}
+          onSetGroupState={setGroupState}
           initialGroupId={editingGroupId}
           onClose={() => {
             setShowGroupManager(false);
