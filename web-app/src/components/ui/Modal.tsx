@@ -1,0 +1,90 @@
+import type { ReactNode } from 'react';
+
+interface ModalProps {
+  children: ReactNode;
+  onClose: () => void;
+  /** Additional class names for the backdrop */
+  backdropClassName?: string;
+  /** Additional class names for the content container */
+  contentClassName?: string;
+  /** Close when clicking backdrop (default: true) */
+  closeOnBackdropClick?: boolean;
+  /** Maximum width class (default: 'max-w-md') */
+  maxWidth?: string;
+}
+
+export function Modal({
+  children,
+  onClose,
+  backdropClassName = '',
+  contentClassName = '',
+  closeOnBackdropClick = true,
+  maxWidth = 'max-w-md',
+}: ModalProps) {
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (closeOnBackdropClick && e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
+  return (
+    <div
+      className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 ${backdropClassName}`}
+      onClick={handleBackdropClick}
+    >
+      <div
+        className={`bg-zinc-900 rounded-3xl ${maxWidth} w-full max-h-[90vh] overflow-y-auto ${contentClassName}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+interface ModalHeaderProps {
+  children: ReactNode;
+  onClose: () => void;
+  /** Custom styles for the header background */
+  style?: React.CSSProperties;
+  /** Additional class names */
+  className?: string;
+  /** Show close button (default: true) */
+  showCloseButton?: boolean;
+}
+
+export function ModalHeader({
+  children,
+  onClose,
+  style,
+  className = '',
+  showCloseButton = true,
+}: ModalHeaderProps) {
+  return (
+    <div
+      className={`p-8 rounded-t-3xl transition-all relative ${className}`}
+      style={style}
+    >
+      {showCloseButton && (
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 p-2 rounded-full bg-black/20 hover:bg-black/40 transition-colors"
+        >
+          <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
+      {children}
+    </div>
+  );
+}
+
+interface ModalContentProps {
+  children: ReactNode;
+  className?: string;
+}
+
+export function ModalContent({ children, className = '' }: ModalContentProps) {
+  return <div className={`p-6 space-y-6 ${className}`}>{children}</div>;
+}

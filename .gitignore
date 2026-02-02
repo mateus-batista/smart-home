@@ -1,0 +1,6 @@
+# Service manager files
+.pids/
+.logs/
+
+# OS files
+.DS_Store

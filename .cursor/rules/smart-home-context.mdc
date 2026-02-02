@@ -1,0 +1,107 @@
+---
+description: Smart Home project context - architecture, services, and key locations
+alwaysApply: true
+---
+
+# Smart Home Control
+
+A local-network smart home control system with voice assistant capabilities. Controls Philips Hue, Nanoleaf, and SwitchBot devices without cloud dependency.
+
+## Architecture
+
+```mermaid
+graph TB
+    subgraph frontend [Frontend - Port 5173]
+        WebApp[React Web App]
+    end
+    
+    subgraph backend [Backend Services]
+        Server[Express Server - Port 3001]
+        Belle[Belle Voice Assistant - Port 3002]
+        DB[(PostgreSQL - Port 5433)]
+    end
+    
+    subgraph proxy_layer [HTTPS Proxy - Port 8443]
+        Proxy[Node.js Proxy]
+    end
+    
+    subgraph devices [Smart Devices]
+        Hue[Philips Hue Bridge]
+        Nanoleaf[Nanoleaf Panels]
+        SwitchBot[SwitchBot Cloud API]
+    end
+    
+    Proxy --> WebApp
+    Proxy --> Server
+    Proxy --> Belle
+    WebApp --> Server
+    WebApp --> Belle
+    Server --> DB
+    Server --> Hue
+    Server --> Nanoleaf
+    Server --> SwitchBot
+    Belle --> Server
+```
+
+## Services
+
+| Service | Port | Technology | Directory |
+|---------|------|------------|-----------|
+| Server | 3001 | Express, TypeScript, Prisma | `server/` |
+| Voice Assistant (Belle) | 3002 | FastAPI, Python, MLX | `voice-assistant/` |
+| Web App | 5173 | React 19, Vite 7, Tailwind 4 | `web-app/` |
+| HTTPS Proxy | 8443 | Node.js, http-proxy | `proxy/` |
+| PostgreSQL | 5433 | Docker | `docker-compose.yml` |
+
+## Device Integrations
+
+- **Philips Hue**: Local bridge API, config in `server/src/config/devices.json`
+- **Nanoleaf**: Local API (port 16021), config in `server/src/config/devices.json`
+- **SwitchBot**: Cloud API with HMAC auth, credentials in `server/.env`
+
+## Key Directories
+
+### Backend Server (`server/`)
+- `src/routes/` - API route handlers (hue, nanoleaf, switchbot, rooms, groups)
+- `src/services/` - Business logic and device integrations
+- `src/types/` - TypeScript type definitions
+- `prisma/schema.prisma` - Database schema (Room, Device, DeviceGroup)
+
+### Web App (`web-app/`)
+- `src/components/` - React components (DeviceCard, LightControl, VoiceButton, etc.)
+- `src/hooks/` - Custom hooks (useDevices, useRooms, useGroups, useVoiceAssistant)
+- `src/services/api.ts` - API client
+
+### Voice Assistant (`voice-assistant/`)
+- `src/belle/` - Main modules (stt, tts, llm, config, personality)
+- `src/belle/tools/` - Device control tools (devices, rooms, groups)
+
+## API Endpoints
+
+### Core
+- `GET /api/devices` - All devices (unified across integrations)
+- `PUT /api/devices/:id` - Update any device
+- `GET/POST/PUT/DELETE /api/rooms` - Room management
+- `GET/POST/PUT/DELETE /api/groups` - Device group management
+
+### Device-Specific
+- `/api/hue/*` - Philips Hue (discover, authenticate, lights, groups)
+- `/api/nanoleaf/*` - Nanoleaf (authenticate, state, effects)
+- `/api/switchbot/*` - SwitchBot (devices, commands)
+
+## Management Script
+
+```bash
+./scripts/smart-home.sh start    # Start all services
+./scripts/smart-home.sh stop     # Stop all services
+./scripts/smart-home.sh status   # Check service status
+./scripts/smart-home.sh logs     # Tail all logs
+./scripts/smart-home.sh logs <service>  # View specific service log
+```
+
+## Development
+
+1. Start PostgreSQL: `docker compose up -d`
+2. Start all services: `./scripts/smart-home.sh start`
+3. Access via HTTPS (for mobile mic): `https://localhost:8443`
+4. Access directly (desktop): `http://localhost:5173`

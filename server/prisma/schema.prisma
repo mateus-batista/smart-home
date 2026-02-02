@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Room {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  devices Device[]
+  groups  DeviceGroup[]
+}
+
+model Device {
+  id             String   @id @default(uuid())
+  externalId     String   @unique
+  name           String
+  type           String   // 'hue' | 'nanoleaf'
+  roomId         String?
+  lastKnownState Json?
+  reachable      Boolean  @default(true)
+  hidden         Boolean  @default(false)
+  lastSeenAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  room   Room?                    @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  groups DeviceGroupMembership[]
+
+  @@index([externalId])
+  @@index([roomId])
+  @@index([hidden])
+}
+
+model DeviceGroup {
+  id        String   @id @default(uuid())
+  name      String
+  roomId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  room    Room?                    @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  devices DeviceGroupMembership[]
+
+  @@index([roomId])
+}
+
+model DeviceGroupMembership {
+  deviceId String
+  groupId  String
+
+  device Device      @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  group  DeviceGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@id([deviceId, groupId])
+  @@index([deviceId])
+  @@index([groupId])
+}
+
+model HueBridgeConfig {
+  id        String   @id @default("singleton")
+  bridgeIp  String?
+  username  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model NanoleafConfig {
+  id        String   @id @default(uuid())
+  name      String
+  ip        String   @unique
+  authToken String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

@@ -1,0 +1,58 @@
+[project]
+name = "belle"
+version = "0.2.0"
+description = "Belle - A bilingual voice assistant for smart home control"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "websockets>=14.0",
+    "numba>=0.59",
+    "mlx-whisper>=0.4",
+    "transformers>=4.44",
+    "mlx-lm>=0.21",
+    "sounddevice>=0.5",
+    "numpy>=2.0",
+    "httpx>=0.28",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    "python-multipart>=0.0.20",
+    "json-repair>=0.30",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8",
+]
+tts = [
+    "parler-tts>=0.2",
+    "torch>=2.0",
+    "torchaudio>=2.0",
+]
+wake = [
+    "pvporcupine>=3.0",
+]
+
+[project.scripts]
+belle = "belle.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/belle"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

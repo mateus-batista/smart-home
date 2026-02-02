@@ -1,0 +1,1318 @@
+openapi: 3.0.3
+info:
+  title: Smart Home API
+  description: |
+    API for controlling smart home devices including Philips Hue lights and Nanoleaf panels.
+    
+    ## Overview
+    This API provides a unified interface for managing multiple smart lighting systems:
+    - **Philips Hue** - Bridge-based smart lights with rooms/groups support
+    - **Nanoleaf** - LED panels with effects support
+    
+    ## Authentication
+    Device authentication is handled through pairing processes:
+    - **Hue**: Press the link button on the bridge, then call `/api/hue/authenticate`
+    - **Nanoleaf**: Hold power button for 5-7 seconds until lights flash, then call `/api/nanoleaf/authenticate`
+    
+    ## Color Modes
+    Devices support multiple color modes:
+    - `hs` - Hue/Saturation mode
+    - `ct` - Color temperature mode (Kelvin)
+    - `effect` - Device-specific effects
+  version: 1.0.0
+  contact:
+    name: Smart Home API
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:3001
+    description: Local development server
+
+tags:
+  - name: General
+    description: Health checks and combined device operations
+  - name: Rooms
+    description: Room management for organizing devices
+  - name: Groups
+    description: Device group management for controlling multiple devices
+  - name: Hue
+    description: Philips Hue bridge and lights management
+  - name: Nanoleaf
+    description: Nanoleaf device management
+
+paths:
+  /api/health:
+    get:
+      tags:
+        - General
+      summary: Health check
+      description: Returns the health status of the server and connected services
+      operationId: getHealth
+      responses:
+        '200':
+          description: Server health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  hueConfigured:
+                    type: boolean
+                    description: Whether Hue bridge is configured
+                  nanoleafDevices:
+                    type: integer
+                    description: Number of configured Nanoleaf devices
+
+  /api/status:
+    get:
+      tags:
+        - General
+      summary: Get setup status
+      description: Returns the configuration status for all supported device types
+      operationId: getStatus
+      responses:
+        '200':
+          description: Setup configuration status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+
+  /api/devices:
+    get:
+      tags:
+        - General
+      summary: Get all devices
+      description: Returns all devices from both Hue and Nanoleaf systems
+      operationId: getAllDevices
+      responses:
+        '200':
+          description: List of all devices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Light'
+
+  /api/devices/{id}:
+    put:
+      tags:
+        - General
+      summary: Update device state
+      description: Update any device by ID (works for both Hue and Nanoleaf)
+      operationId: updateDevice
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceStateUpdate'
+      responses:
+        '200':
+          description: Device updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Room Endpoints
+  /api/rooms:
+    get:
+      tags:
+        - Rooms
+      summary: Get all rooms
+      description: Returns all rooms with their devices and groups
+      operationId: getRooms
+      responses:
+        '200':
+          description: List of rooms
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Room'
+    post:
+      tags:
+        - Rooms
+      summary: Create a room
+      description: Create a new room for organizing devices
+      operationId: createRoom
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  description: Room name
+                  example: "Kitchen"
+      responses:
+        '201':
+          description: Room created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+
+  /api/rooms/{id}:
+    get:
+      tags:
+        - Rooms
+      summary: Get a room
+      description: Returns a specific room by ID
+      operationId: getRoom
+      parameters:
+        - $ref: '#/components/parameters/RoomId'
+      responses:
+        '200':
+          description: Room details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '404':
+          description: Room not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - Rooms
+      summary: Update a room
+      description: Update a room's name
+      operationId: updateRoom
+      parameters:
+        - $ref: '#/components/parameters/RoomId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: New room name
+      responses:
+        '200':
+          description: Room updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '404':
+          description: Room not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Rooms
+      summary: Delete a room
+      description: Delete a room (devices will be unassigned)
+      operationId: deleteRoom
+      parameters:
+        - $ref: '#/components/parameters/RoomId'
+      responses:
+        '204':
+          description: Room deleted successfully
+        '404':
+          description: Room not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/rooms/{roomId}/devices/{deviceExternalId}:
+    put:
+      tags:
+        - Rooms
+      summary: Assign device to room
+      description: Assign a device to a room by its external ID
+      operationId: assignDeviceToRoom
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          description: Room ID
+          schema:
+            type: string
+            format: uuid
+        - name: deviceExternalId
+          in: path
+          required: true
+          description: Device external ID (e.g., hue-1)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Device assigned successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Room or device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Rooms
+      summary: Remove device from room
+      description: Remove a device from a room (sets room to null)
+      operationId: removeDeviceFromRoom
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          description: Room ID
+          schema:
+            type: string
+            format: uuid
+        - name: deviceExternalId
+          in: path
+          required: true
+          description: Device external ID (e.g., hue-1)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Device removed from room successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Room or device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Device Group Endpoints
+  /api/groups:
+    get:
+      tags:
+        - Groups
+      summary: Get all device groups
+      description: Returns all device groups with their devices
+      operationId: getGroups
+      responses:
+        '200':
+          description: List of device groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceGroup'
+    post:
+      tags:
+        - Groups
+      summary: Create a device group
+      description: Create a new device group for controlling multiple devices together
+      operationId: createGroup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  description: Group name
+                  example: "Kitchen Table Lights"
+                roomId:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  description: Optional room ID to associate group with
+      responses:
+        '201':
+          description: Group created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceGroup'
+
+  /api/groups/{id}:
+    get:
+      tags:
+        - Groups
+      summary: Get a device group
+      description: Returns a specific device group by ID
+      operationId: getGroup
+      parameters:
+        - $ref: '#/components/parameters/GroupId'
+      responses:
+        '200':
+          description: Group details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceGroup'
+        '404':
+          description: Group not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - Groups
+      summary: Update a device group
+      description: Update a group's name or room association
+      operationId: updateGroup
+      parameters:
+        - $ref: '#/components/parameters/GroupId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                roomId:
+                  type: string
+                  format: uuid
+                  nullable: true
+      responses:
+        '200':
+          description: Group updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceGroup'
+        '404':
+          description: Group not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Groups
+      summary: Delete a device group
+      description: Delete a device group (devices remain but are no longer grouped)
+      operationId: deleteGroup
+      parameters:
+        - $ref: '#/components/parameters/GroupId'
+      responses:
+        '204':
+          description: Group deleted successfully
+        '404':
+          description: Group not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/groups/{groupId}/devices:
+    post:
+      tags:
+        - Groups
+      summary: Add device to group
+      description: Add a device to a device group
+      operationId: addDeviceToGroup
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          description: Group ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - deviceExternalId
+              properties:
+                deviceExternalId:
+                  type: string
+                  description: Device external ID (e.g., hue-1)
+      responses:
+        '201':
+          description: Device added to group successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Group or device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/groups/{groupId}/devices/{deviceExternalId}:
+    delete:
+      tags:
+        - Groups
+      summary: Remove device from group
+      description: Remove a device from a device group
+      operationId: removeDeviceFromGroup
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          description: Group ID
+          schema:
+            type: string
+            format: uuid
+        - name: deviceExternalId
+          in: path
+          required: true
+          description: Device external ID (e.g., hue-1)
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Device removed from group successfully
+        '404':
+          description: Group or device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/groups/{id}/state:
+    put:
+      tags:
+        - Groups
+      summary: Control all devices in group
+      description: Set the state of all devices in a group
+      operationId: setGroupState
+      parameters:
+        - $ref: '#/components/parameters/GroupId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceStateUpdate'
+      responses:
+        '200':
+          description: Group state updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        deviceId:
+                          type: string
+                        success:
+                          type: boolean
+                        error:
+                          type: string
+        '404':
+          description: Group not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Hue Endpoints
+  /api/hue/status:
+    get:
+      tags:
+        - Hue
+      summary: Get Hue configuration status
+      description: Check if Hue bridge is configured
+      operationId: getHueStatus
+      responses:
+        '200':
+          description: Hue configuration status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  configured:
+                    type: boolean
+
+  /api/hue/discover:
+    get:
+      tags:
+        - Hue
+      summary: Discover Hue bridges
+      description: Scan the local network for Philips Hue bridges
+      operationId: discoverHueBridges
+      responses:
+        '200':
+          description: List of discovered bridges
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HueBridge'
+
+  /api/hue/authenticate:
+    post:
+      tags:
+        - Hue
+      summary: Authenticate with Hue bridge
+      description: |
+        Authenticate with a Hue bridge. 
+        
+        **Important**: The user must press the link button on the Hue bridge before calling this endpoint.
+      operationId: authenticateHue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - bridgeIp
+              properties:
+                bridgeIp:
+                  type: string
+                  description: IP address of the Hue bridge
+                  example: "192.168.1.100"
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  username:
+                    type: string
+                    description: Generated username for API access
+        '428':
+          description: Link button not pressed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Please press the link button on the Hue bridge and try again
+                  code:
+                    type: string
+                    example: LINK_BUTTON_NOT_PRESSED
+
+  /api/hue/lights:
+    get:
+      tags:
+        - Hue
+      summary: Get all Hue lights
+      description: Returns all lights connected to the Hue bridge
+      operationId: getHueLights
+      responses:
+        '200':
+          description: List of Hue lights
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Light'
+
+  /api/hue/lights/{id}:
+    get:
+      tags:
+        - Hue
+      summary: Get Hue light
+      description: Returns a specific Hue light by ID
+      operationId: getHueLight
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Light ID (e.g., hue-1)
+          schema:
+            type: string
+            example: hue-1
+      responses:
+        '200':
+          description: Light details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Light'
+        '404':
+          description: Light not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - Hue
+      summary: Update Hue light state
+      description: Update the state of a specific Hue light
+      operationId: updateHueLight
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Light ID (e.g., hue-1)
+          schema:
+            type: string
+            example: hue-1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceStateUpdate'
+      responses:
+        '200':
+          description: Light updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Light not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/hue/groups:
+    get:
+      tags:
+        - Hue
+      summary: Get all Hue groups
+      description: Returns all groups (rooms) from the Hue bridge
+      operationId: getHueGroups
+      responses:
+        '200':
+          description: List of Hue groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HueGroup'
+
+  /api/hue/groups/{id}:
+    put:
+      tags:
+        - Hue
+      summary: Update Hue group state
+      description: Update the state of all lights in a group (room)
+      operationId: updateHueGroup
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Group ID (e.g., hue-group-1)
+          schema:
+            type: string
+            example: hue-group-1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceStateUpdate'
+      responses:
+        '200':
+          description: Group updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Group not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Nanoleaf Endpoints
+  /api/nanoleaf/devices:
+    get:
+      tags:
+        - Nanoleaf
+      summary: Get all Nanoleaf devices
+      description: Returns all configured Nanoleaf devices with their current states
+      operationId: getNanoleafDevices
+      responses:
+        '200':
+          description: List of Nanoleaf devices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Light'
+
+  /api/nanoleaf/authenticate:
+    post:
+      tags:
+        - Nanoleaf
+      summary: Authenticate with Nanoleaf device
+      description: |
+        Authenticate with a Nanoleaf device.
+        
+        **Important**: The device must be in pairing mode. Hold the power button for 5-7 seconds until the lights flash.
+      operationId: authenticateNanoleaf
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ip
+              properties:
+                ip:
+                  type: string
+                  description: IP address of the Nanoleaf device
+                  example: "192.168.1.150"
+                name:
+                  type: string
+                  description: Optional friendly name for the device
+                  example: "Living Room Panels"
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  device:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      name:
+                        type: string
+                      ip:
+                        type: string
+                      authToken:
+                        type: string
+        '428':
+          description: Device not in pairing mode
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    example: NOT_IN_PAIRING_MODE
+
+  /api/nanoleaf/{id}:
+    get:
+      tags:
+        - Nanoleaf
+      summary: Get Nanoleaf device
+      description: Returns a specific Nanoleaf device state
+      operationId: getNanoleafDevice
+      parameters:
+        - $ref: '#/components/parameters/NanoleafId'
+      responses:
+        '200':
+          description: Device details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Light'
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Nanoleaf
+      summary: Remove Nanoleaf device
+      description: Remove a Nanoleaf device from the configuration
+      operationId: deleteNanoleafDevice
+      parameters:
+        - $ref: '#/components/parameters/NanoleafId'
+      responses:
+        '200':
+          description: Device removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/nanoleaf/{id}/state:
+    put:
+      tags:
+        - Nanoleaf
+      summary: Update Nanoleaf device state
+      description: Update the state of a Nanoleaf device
+      operationId: updateNanoleafState
+      parameters:
+        - $ref: '#/components/parameters/NanoleafId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceStateUpdate'
+      responses:
+        '200':
+          description: Device updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/nanoleaf/{id}/effects:
+    get:
+      tags:
+        - Nanoleaf
+      summary: Get Nanoleaf effects
+      description: Returns available effects and the current effect for a Nanoleaf device
+      operationId: getNanoleafEffects
+      parameters:
+        - $ref: '#/components/parameters/NanoleafId'
+      responses:
+        '200':
+          description: Effects list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  effects:
+                    type: array
+                    items:
+                      type: string
+                    description: List of available effect names
+                    example: ["Northern Lights", "Flames", "Forest"]
+                  currentEffect:
+                    type: string
+                    description: Currently active effect
+                    example: "Northern Lights"
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - Nanoleaf
+      summary: Set Nanoleaf effect
+      description: Set the active effect for a Nanoleaf device
+      operationId: setNanoleafEffect
+      parameters:
+        - $ref: '#/components/parameters/NanoleafId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - effect
+              properties:
+                effect:
+                  type: string
+                  description: Name of the effect to activate
+                  example: "Northern Lights"
+      responses:
+        '200':
+          description: Effect set successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/nanoleaf/{id}/identify:
+    post:
+      tags:
+        - Nanoleaf
+      summary: Identify Nanoleaf device
+      description: Flash the lights on a Nanoleaf device to help identify it
+      operationId: identifyNanoleafDevice
+      parameters:
+        - $ref: '#/components/parameters/NanoleafId'
+      responses:
+        '200':
+          description: Identify triggered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  parameters:
+    DeviceId:
+      name: id
+      in: path
+      required: true
+      description: Device ID (e.g., hue-1 for Hue lights or UUID for Nanoleaf)
+      schema:
+        type: string
+        example: hue-1
+
+    NanoleafId:
+      name: id
+      in: path
+      required: true
+      description: Nanoleaf device UUID
+      schema:
+        type: string
+        format: uuid
+        example: 550e8400-e29b-41d4-a716-446655440000
+
+    RoomId:
+      name: id
+      in: path
+      required: true
+      description: Room UUID
+      schema:
+        type: string
+        format: uuid
+        example: 550e8400-e29b-41d4-a716-446655440001
+
+    GroupId:
+      name: id
+      in: path
+      required: true
+      description: Device group UUID
+      schema:
+        type: string
+        format: uuid
+        example: 550e8400-e29b-41d4-a716-446655440002
+
+  schemas:
+    Light:
+      type: object
+      description: Unified light/device representation
+      properties:
+        id:
+          type: string
+          description: Unique device identifier
+          example: hue-1
+        name:
+          type: string
+          description: User-friendly device name
+          example: Living Room Lamp
+        type:
+          type: string
+          enum: [hue, nanoleaf]
+          description: Device type/manufacturer
+        state:
+          $ref: '#/components/schemas/DeviceState'
+        reachable:
+          type: boolean
+          description: Whether the device is reachable on the network
+        model:
+          type: string
+          description: Device model identifier
+          example: LCT007
+        capabilities:
+          type: object
+          properties:
+            color:
+              type: boolean
+              description: Whether device supports color
+            colorTemp:
+              type: boolean
+              description: Whether device supports color temperature
+        roomId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Room ID the device is assigned to
+        roomName:
+          type: string
+          nullable: true
+          description: Name of the room the device is assigned to
+        groups:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+          description: Groups the device belongs to
+
+    Room:
+      type: object
+      description: Room for organizing devices
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique room identifier
+        name:
+          type: string
+          description: Room name
+          example: Kitchen
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/Light'
+          description: Devices in this room
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceGroup'
+          description: Device groups in this room
+
+    DeviceGroup:
+      type: object
+      description: Group of devices for simultaneous control
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique group identifier
+        name:
+          type: string
+          description: Group name
+          example: Kitchen Table Lights
+        roomId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Room this group belongs to
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        room:
+          $ref: '#/components/schemas/Room'
+          nullable: true
+          description: Room this group belongs to
+        devices:
+          type: array
+          items:
+            type: object
+            properties:
+              device:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  externalId:
+                    type: string
+                  name:
+                    type: string
+                  type:
+                    type: string
+          description: Devices in this group
+
+    DeviceState:
+      type: object
+      description: Current state of a device
+      properties:
+        on:
+          type: boolean
+          description: Whether the device is on
+        brightness:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Brightness level (0-100)
+        color:
+          $ref: '#/components/schemas/ColorHSB'
+        colorTemp:
+          type: integer
+          minimum: 2000
+          maximum: 6500
+          description: Color temperature in Kelvin
+          example: 4000
+        colorMode:
+          type: string
+          enum: [hs, ct, effect]
+          description: Current color mode
+
+    DeviceStateUpdate:
+      type: object
+      description: Partial device state for updates
+      properties:
+        on:
+          type: boolean
+          description: Turn device on or off
+        brightness:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Brightness level (0-100)
+        color:
+          $ref: '#/components/schemas/ColorHSB'
+        colorTemp:
+          type: integer
+          minimum: 2000
+          maximum: 6500
+          description: Color temperature in Kelvin
+
+    ColorHSB:
+      type: object
+      description: HSB color representation
+      properties:
+        hue:
+          type: number
+          minimum: 0
+          maximum: 360
+          description: Hue value (0-360 degrees)
+          example: 240
+        saturation:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Saturation percentage (0-100)
+          example: 100
+        brightness:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Brightness percentage (0-100)
+          example: 75
+
+    HueBridge:
+      type: object
+      description: Discovered Hue bridge
+      properties:
+        id:
+          type: string
+          description: Bridge identifier
+        internalipaddress:
+          type: string
+          description: IP address on local network
+          example: 192.168.1.100
+        port:
+          type: integer
+          description: Port number
+          example: 443
+
+    HueGroup:
+      type: object
+      description: Hue light group (room)
+      properties:
+        id:
+          type: string
+          description: Group identifier
+          example: hue-group-1
+        name:
+          type: string
+          description: Group name
+          example: Living Room
+        lights:
+          type: array
+          items:
+            type: string
+          description: IDs of lights in this group
+          example: ["hue-1", "hue-2", "hue-3"]
+
+    Status:
+      type: object
+      description: System configuration status
+      properties:
+        hue:
+          type: object
+          properties:
+            configured:
+              type: boolean
+        nanoleaf:
+          type: object
+          properties:
+            configured:
+              type: boolean
+            deviceCount:
+              type: integer
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: Device not found

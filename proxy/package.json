@@ -1,0 +1,13 @@
+{
+  "name": "smart-home-proxy",
+  "version": "1.0.0",
+  "description": "HTTPS reverse proxy for Smart Home services",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "generate-certs": "mkdir -p certs && openssl req -x509 -newkey rsa:2048 -keyout certs/key.pem -out certs/cert.pem -days 365 -nodes -subj '/CN=smart-home.local'"
+  },
+  "dependencies": {
+    "http-proxy": "^1.18.1"
+  }
+}
