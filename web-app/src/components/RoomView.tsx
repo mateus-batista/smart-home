@@ -1,11 +1,10 @@
-import { useMemo, useState, useRef, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import type { Room, Light, DeviceGroup } from '../types/devices';
 import { isShadeDevice } from '../types/devices';
 import { DeviceCard } from './DeviceCard';
 import { ShadeCard } from './ShadeCard';
 import { GroupCard } from './GroupCard';
 import { getRoomIcon } from '../utils/rooms';
-import { LoadingSpinner } from './ui/LoadingSpinner';
 
 interface RoomViewProps {
   rooms: Room[];
@@ -21,7 +20,6 @@ interface RoomViewProps {
   onEditGroup: (groupId: string) => void;
   onDeleteGroup: (groupId: string) => Promise<void>;
   onSetGroupState: (groupId: string, state: { on?: boolean; brightness?: number }) => Promise<unknown>;
-  onCreateRoom: (name: string) => Promise<Room>;
   onDeleteRoom: (id: string) => Promise<void>;
   onRefresh: () => void;
 }
@@ -166,22 +164,9 @@ export function RoomView({
   onEditGroup,
   onDeleteGroup,
   onSetGroupState,
-  onCreateRoom,
   onDeleteRoom,
   onRefresh,
 }: RoomViewProps) {
-  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
-  const [newRoomName, setNewRoomName] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // Focus input when creating
-  useEffect(() => {
-    if (isCreatingRoom && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [isCreatingRoom]);
-
   // Organize devices and groups by room
   const roomData = useMemo(() => {
     const data: Array<{
@@ -226,20 +211,6 @@ export function RoomView({
     return data;
   }, [rooms, devices, groups]);
 
-  const handleCreateRoom = async () => {
-    if (!newRoomName.trim()) return;
-    setIsLoading(true);
-    try {
-      await onCreateRoom(newRoomName.trim());
-      setNewRoomName('');
-      setIsCreatingRoom(false);
-    } catch (error) {
-      console.error('Failed to create room:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <div>
       {/* Room sections */}
@@ -275,63 +246,6 @@ export function RoomView({
           <p className="text-zinc-500 text-sm mt-1">Create a room and assign devices to it</p>
         </div>
       )}
-
-      {/* Add room button */}
-      <div className="mt-6 pt-6 border-t border-zinc-800">
-        {isCreatingRoom ? (
-          <div className="flex items-center gap-2 max-w-sm">
-            <input
-              ref={inputRef}
-              type="text"
-              value={newRoomName}
-              onChange={(e) => setNewRoomName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreateRoom();
-                if (e.key === 'Escape') {
-                  setIsCreatingRoom(false);
-                  setNewRoomName('');
-                }
-              }}
-              placeholder="Room name..."
-              className="flex-1 py-2.5 px-4 bg-zinc-800 border border-zinc-600 rounded-xl text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all"
-            />
-            <button
-              onClick={handleCreateRoom}
-              disabled={isLoading || !newRoomName.trim()}
-              className="p-2.5 bg-green-500 hover:bg-green-600 disabled:opacity-50 disabled:hover:bg-green-500 rounded-xl transition-colors"
-            >
-              {isLoading ? (
-                <LoadingSpinner size="md" color="white" />
-              ) : (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              )}
-            </button>
-            <button
-              onClick={() => {
-                setIsCreatingRoom(false);
-                setNewRoomName('');
-              }}
-              className="p-2.5 bg-zinc-700 hover:bg-zinc-600 rounded-xl transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setIsCreatingRoom(true)}
-            className="flex items-center gap-2 py-2.5 px-4 rounded-xl text-sm font-medium bg-zinc-800/50 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border border-dashed border-zinc-700 hover:border-zinc-500 transition-all"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            <span>Add Room</span>
-          </button>
-        )}
-      </div>
     </div>
   );
 }
