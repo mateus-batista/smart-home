@@ -5,10 +5,11 @@ import { CloseButton } from './ui/CloseButton';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import { EmptyState, EmptyStateIcons } from './ui/EmptyState';
 import { StatusDot } from './ui/StatusDot';
-import { DeviceControlItem } from './ui/DeviceControlItem';
 import { ToggleSwitch } from './ui/ToggleSwitch';
 import { ShadeOpenCloseButtons } from './ui/ShadeOpenCloseButtons';
 import { InlineSlider } from './ui/Slider';
+import { LightControl } from './LightControl';
+import { ShadeControl } from './ShadeControl';
 
 interface GroupManagerProps {
   groups: DeviceGroup[];
@@ -50,9 +51,9 @@ export function GroupManager({
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [editingName, setEditingName] = useState<string | null>(null);
-  const [pendingBrightness, setPendingBrightness] = useState<Record<string, number>>({});
   const [pendingGroupBrightness, setPendingGroupBrightness] = useState<number | null>(null);
   const [isGroupControlling, setIsGroupControlling] = useState(false);
+  const [selectedDevice, setSelectedDevice] = useState<Light | null>(null);
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId);
   const groupDeviceIds = new Set(selectedGroup?.devices?.map((d) => d.device.externalId) ?? []);
@@ -146,25 +147,15 @@ export function GroupManager({
     }
   };
 
-  const handleDeviceToggle = async (device: Light) => {
-    await onUpdateDevice(device.id, { on: !device.state.on });
-  };
-
-  const handleDeviceBrightnessChange = (deviceId: string, brightness: number) => {
-    setPendingBrightness((prev) => ({ ...prev, [deviceId]: brightness }));
-  };
-
-  const handleDeviceBrightnessCommit = async (deviceId: string, brightness: number) => {
-    await onUpdateDevice(deviceId, { brightness, on: brightness > 0 });
-    setPendingBrightness((prev) => {
-      const next = { ...prev };
-      delete next[deviceId];
-      return next;
-    });
-  };
-
-  const handleShadePreset = async (deviceId: string, brightness: number) => {
-    await onUpdateDevice(deviceId, { brightness, on: brightness > 0 });
+  // Device modal handlers
+  const handleDeviceUpdate = async (state: Partial<Light['state']>) => {
+    if (selectedDevice) {
+      await onUpdateDevice(selectedDevice.id, state);
+      // Update local selected device state for immediate feedback
+      setSelectedDevice((prev) =>
+        prev ? { ...prev, state: { ...prev.state, ...state } } : null
+      );
+    }
   };
 
   // Group-level control handlers
@@ -511,18 +502,32 @@ export function GroupManager({
                       description="Go to Manage tab to add devices"
                     />
                   ) : (
-                    <div className="space-y-2">
-                      {groupDevices.map((device) => (
-                        <DeviceControlItem
-                          key={device.id}
-                          device={device}
-                          pendingBrightness={pendingBrightness[device.id]}
-                          onToggle={handleDeviceToggle}
-                          onBrightnessChange={handleDeviceBrightnessChange}
-                          onBrightnessCommit={handleDeviceBrightnessCommit}
-                          onShadePreset={handleShadePreset}
-                        />
-                      ))}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {groupDevices.map((device) => {
+                        const isShade = isShadeDevice(device);
+                        return (
+                          <button
+                            key={device.id}
+                            onClick={() => setSelectedDevice(device)}
+                            className={`p-3 rounded-xl text-left transition-all ${
+                              device.state.on && device.reachable
+                                ? 'bg-zinc-800 border border-zinc-600'
+                                : 'bg-zinc-800/50 border border-zinc-700/50'
+                            } ${!device.reachable ? 'opacity-60' : 'hover:bg-zinc-700/80'}`}
+                          >
+                            <div className="flex items-center gap-2 mb-2">
+                              <StatusDot connected={device.reachable} />
+                              <span className="text-xs text-zinc-500">
+                                {isShade ? 'Shade' : 'Light'}
+                              </span>
+                            </div>
+                            <p className="font-medium text-white text-sm truncate">{device.name}</p>
+                            <p className="text-xs text-zinc-500 mt-0.5">
+                              {device.state.on ? `${device.state.brightness}%` : 'Off'}
+                            </p>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -598,6 +603,23 @@ export function GroupManager({
           )}
         </div>
       </div>
+
+      {/* Device Control Modals */}
+      {selectedDevice && !isShadeDevice(selectedDevice) && (
+        <LightControl
+          device={selectedDevice}
+          onUpdate={handleDeviceUpdate}
+          onClose={() => setSelectedDevice(null)}
+        />
+      )}
+
+      {selectedDevice && isShadeDevice(selectedDevice) && (
+        <ShadeControl
+          device={selectedDevice}
+          onUpdate={handleDeviceUpdate}
+          onClose={() => setSelectedDevice(null)}
+        />
+      )}
     </div>
   );
 }
