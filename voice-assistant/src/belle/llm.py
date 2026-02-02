@@ -48,17 +48,6 @@ def _load_model():
     from mlx_lm import load
 
     _model, _tokenizer = load(settings.llm_model)
-
-    # Set ChatML template if not present (fallback for models without one)
-    if _tokenizer.chat_template is None:
-        logger.info("Setting default ChatML chat template")
-        _tokenizer.chat_template = (
-            "{% for message in messages %}"
-            "{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}"
-            "{% endfor %}"
-            "{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}"
-        )
-
     logger.info("LLM model loaded successfully")
     return _model, _tokenizer
 
@@ -246,7 +235,7 @@ After tool execution, provide a brief confirmation."""
 
     messages = _build_messages(user_message, conversation_history, system_prompt_with_context)
 
-    # Apply chat template with native tool support (Qwen 2.5 has built-in Hermes-style tool calling)
+    # Apply chat template with native Qwen tool support
     prompt = tokenizer.apply_chat_template(
         messages,
         tools=ALL_TOOLS,
