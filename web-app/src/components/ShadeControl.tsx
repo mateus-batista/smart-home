@@ -2,7 +2,8 @@ import { useState } from 'react';
 import type { Light, DeviceState } from '../types/devices';
 import { Modal, ModalHeader, ModalContent } from './ui/Modal';
 import { Slider } from './ui/Slider';
-import { ShadeVisual, getVisualOpenness } from './ui/ShadeVisual';
+import { ShadeVisual } from './ui/ShadeVisual';
+import { getVisualOpenness } from '../utils/shadeHelpers';
 import { ShadeOpenCloseButtons } from './ui/ShadeOpenCloseButtons';
 
 interface ShadeControlProps {
@@ -38,7 +39,7 @@ export function ShadeControl({ device, onUpdate, onClose, onToggleHidden }: Shad
   };
 
   const handleOpen = () => {
-    handlePreset(isTilt ? 50 : 100);
+    handlePreset(100);
   };
 
   const handleClose = () => {
@@ -56,12 +57,7 @@ export function ShadeControl({ device, onUpdate, onClose, onToggleHidden }: Shad
   };
 
   const getStatusText = () => {
-    if (isTilt) {
-      // For Blind Tilt: 50 = fully open, 0 or 100 = closed
-      if (localPosition === 50) return 'Fully Open';
-      if (localPosition <= 5 || localPosition >= 95) return 'Fully Closed';
-      return `${visualOpenness}% Open`;
-    }
+    // Same logic for both Blind Tilt and regular shades: 0 = closed, 100 = open
     if (localPosition >= 100) return 'Fully Open';
     if (localPosition <= 0) return 'Fully Closed';
     return `${localPosition}% Open`;
@@ -93,21 +89,13 @@ export function ShadeControl({ device, onUpdate, onClose, onToggleHidden }: Shad
         <div>
           <h3 className="text-sm font-medium text-zinc-400 mb-3">Quick Presets</h3>
           <div className="grid grid-cols-4 gap-2">
-            {(isTilt
-              ? [
-                  // For Blind Tilt: 0 = closed, 25 = 50% open, 50 = fully open, 75 = 50% open (other direction)
-                  { label: 'Closed', value: 0, icon: '🌙' },
-                  { label: '50%', value: 25, icon: '🌤️' },
-                  { label: 'Open', value: 50, icon: '☀️' },
-                  { label: '50%', value: 75, icon: '🌤️' },
-                ]
-              : [
+            {[
+                  // Same presets for both Blind Tilt and regular shades: 0 = closed, 100 = open
                   { label: 'Closed', value: 0, icon: '🌙' },
                   { label: '25%', value: 25, icon: '🌤️' },
                   { label: '50%', value: 50, icon: '⛅' },
                   { label: '75%', value: 75, icon: '🌥️' },
-                ]
-            ).map(({ label, value, icon }) => (
+                ].map(({ label, value, icon }) => (
               <button
                 key={value}
                 onClick={() => handlePreset(value)}
@@ -144,17 +132,8 @@ export function ShadeControl({ device, onUpdate, onClose, onToggleHidden }: Shad
           disabled={!device.reachable}
           label={isTilt ? 'Tilt Angle' : 'Position'}
           valueDisplay={`${visualOpenness}% open`}
-          gradient={
-            isTilt
-              // For Blind Tilt: center (50) is brightest
-              ? 'linear-gradient(to right, #374151, #3b82f6, #87ceeb, #3b82f6, #374151)'
-              : 'linear-gradient(to right, #374151, #3b82f6, #87ceeb)'
-          }
-          hints={
-            isTilt
-              ? { start: 'Closed', middle: 'Open', end: 'Closed' }
-              : { start: 'Closed', end: 'Open' }
-          }
+          gradient="linear-gradient(to right, #374151, #3b82f6, #87ceeb)"
+          hints={{ start: 'Closed', end: 'Open' }}
         />
 
         {/* Device info */}

@@ -4,7 +4,7 @@ interface LoadingSpinnerProps {
   /** Size variant: 'xs', 'sm', 'md', 'lg' */
   size?: 'xs' | 'sm' | 'md' | 'lg';
   /** Color variant */
-  color?: 'white' | 'zinc' | 'primary' | 'red' | 'green';
+  color?: 'white' | 'zinc' | 'primary' | 'red' | 'green' | 'blue';
   className?: string;
 }
 
@@ -26,6 +26,7 @@ function LoadingSpinnerComponent({
     primary: 'border-violet-300 border-t-violet-500',
     red: 'border-red-400/30 border-t-red-400',
     green: 'border-green-400/30 border-t-green-400',
+    blue: 'border-blue-400/30 border-t-blue-400',
   };
 
   return (

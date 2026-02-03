@@ -4,7 +4,14 @@
       "Bash(npx tsc:*)",
       "Bash(npm test)",
       "Bash(timeout 10 npm run dev:*)",
-      "Bash(uv run pytest:*)"
+      "Bash(uv run pytest:*)",
+      "Bash(grep:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(ls:*)",
+      "Bash(npm run lint)",
+      "Bash(npm run build:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npm test:*)"
     ]
   }
 }

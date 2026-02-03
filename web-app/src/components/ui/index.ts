@@ -6,6 +6,7 @@ export { LoadingSpinner } from './LoadingSpinner';
 export { CloseButton } from './CloseButton';
 export { EmptyState, EmptyStateIcons } from './EmptyState';
 export { StatusDot } from './StatusDot';
-export { ShadeVisual, getVisualOpenness } from './ShadeVisual';
+export { ShadeVisual } from './ShadeVisual';
+export { getVisualOpenness } from '../../utils/shadeHelpers';
 export { ShadeOpenCloseButtons } from './ShadeOpenCloseButtons';
 export { DeviceControlItem } from './DeviceControlItem';

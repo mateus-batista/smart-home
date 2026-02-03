@@ -48,11 +48,11 @@ describe('SwitchBot Service', () => {
     });
 
     describe('when only on/off is specified', () => {
-      it('should return 50 (horizontal slats) when on=true', () => {
-        expect(getBlindTiltPosition({ on: true })).toBe(50);
+      it('should return 100 (tilted down, fully open) when on=true', () => {
+        expect(getBlindTiltPosition({ on: true })).toBe(100);
       });
 
-      it('should return 0 (tilted down) when on=false', () => {
+      it('should return 0 (horizontal, closed) when on=false', () => {
         expect(getBlindTiltPosition({ on: false })).toBe(0);
       });
     });
@@ -66,15 +66,15 @@ describe('SwitchBot Service', () => {
 
   describe('getShadeCommand', () => {
     describe('Blind Tilt', () => {
-      it('should return setPosition with down;50 for on=true (horizontal slats = open)', () => {
+      it('should return setPosition with down;100 for on=true (tilted down = fully open)', () => {
         const result = getShadeCommand('Blind Tilt', { on: true });
         expect(result).toEqual({
           command: 'setPosition',
-          parameter: 'down;50',
+          parameter: 'down;100',
         });
       });
 
-      it('should return setPosition with down;0 for on=false (tilted down = closed)', () => {
+      it('should return setPosition with down;0 for on=false (horizontal = closed)', () => {
         const result = getShadeCommand('Blind Tilt', { on: false });
         expect(result).toEqual({
           command: 'setPosition',
@@ -90,10 +90,9 @@ describe('SwitchBot Service', () => {
         });
       });
 
-      it('should always close downward (position 0, not 100)', () => {
+      it('should close to horizontal position (0)', () => {
         const result = getShadeCommand('Blind Tilt', { on: false });
         expect(result?.parameter).toBe('down;0');
-        expect(result?.parameter).not.toBe('down;100');
       });
 
       it('should return null for empty state', () => {

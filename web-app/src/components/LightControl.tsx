@@ -139,6 +139,8 @@ export function LightControl({ device, onUpdate, onClose, onToggleHidden }: Ligh
           disabled={!device.reachable || !localState.on}
           label="Brightness"
           valueDisplay={`${localState.brightness}%`}
+          gradient="linear-gradient(to right, #27272a, #78716c, #fbbf24, #fef3c7)"
+          hints={{ start: 'Dim', end: 'Bright' }}
         />
 
         {/* Color Temperature (for devices that support it) */}

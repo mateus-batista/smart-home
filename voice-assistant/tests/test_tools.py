@@ -135,20 +135,20 @@ class TestBlindTiltHelpers:
         assert _is_blind_tilt(device) is False
 
     def test_blind_tilt_position_fully_open(self):
-        """100% openness should map to position 50 (horizontal slats)."""
-        assert _get_blind_tilt_position_for_openness(100) == 50
+        """100% openness should map to position 100 (tilted down, fully open)."""
+        assert _get_blind_tilt_position_for_openness(100) == 100
 
     def test_blind_tilt_position_fully_closed(self):
-        """0% openness should map to position 0 (tilted down)."""
+        """0% openness should map to position 0 (horizontal, closed)."""
         assert _get_blind_tilt_position_for_openness(0) == 0
 
     def test_blind_tilt_position_half_open(self):
-        """50% openness should map to position 25."""
-        assert _get_blind_tilt_position_for_openness(50) == 25
+        """50% openness should map to position 50."""
+        assert _get_blind_tilt_position_for_openness(50) == 50
 
     def test_blind_tilt_position_quarter_open(self):
-        """25% openness should map to position 12."""
-        assert _get_blind_tilt_position_for_openness(25) == 12
+        """25% openness should map to position 25."""
+        assert _get_blind_tilt_position_for_openness(25) == 25
 
 
 class TestControlShade:
@@ -219,7 +219,7 @@ class TestControlShade:
 
     @pytest.mark.asyncio
     async def test_open_blind_tilt(self, mock_devices):
-        """Should open Blind Tilt to position 50 (horizontal slats)."""
+        """Should open Blind Tilt to position 100 (tilted down, fully open)."""
         with (
             patch("belle.tools.devices._get_cached_devices", new_callable=AsyncMock) as mock_cache,
             patch("belle.tools.devices.get_client", new_callable=AsyncMock) as mock_client,
@@ -237,9 +237,9 @@ class TestControlShade:
             assert result["success"] is True
             assert result["action"] == "opened"
 
-            # Verify the state sent: brightness should be 50 (horizontal slats)
+            # Verify the state sent: brightness should be 100 (fully tilted = open)
             call_args = mock_http.put.call_args
-            assert call_args[1]["json"]["brightness"] == 50
+            assert call_args[1]["json"]["brightness"] == 100
             assert call_args[1]["json"]["on"] is True
 
     @pytest.mark.asyncio
@@ -290,7 +290,7 @@ class TestControlShade:
 
     @pytest.mark.asyncio
     async def test_set_position_blind_tilt(self, mock_devices):
-        """Should convert openness percentage to Blind Tilt position."""
+        """Should pass openness percentage directly as position for Blind Tilt."""
         with (
             patch("belle.tools.devices._get_cached_devices", new_callable=AsyncMock) as mock_cache,
             patch("belle.tools.devices.get_client", new_callable=AsyncMock) as mock_client,
@@ -303,15 +303,15 @@ class TestControlShade:
             mock_http.put = AsyncMock(return_value=mock_response)
             mock_client.return_value = mock_http
 
-            # Set to 50% openness -> should become position 25 for Blind Tilt
+            # Set to 50% openness -> should become position 50 for Blind Tilt
             result = await control_shade("Living Room Blinds", "position", position=50)
 
             assert result["success"] is True
             assert "50%" in result["action"]
 
-            # Verify the state sent: 50% openness = position 25 for Blind Tilt
+            # Verify the state sent: 50% openness = position 50 for Blind Tilt
             call_args = mock_http.put.call_args
-            assert call_args[1]["json"]["brightness"] == 25
+            assert call_args[1]["json"]["brightness"] == 50
 
     @pytest.mark.asyncio
     async def test_set_position_regular_shade(self, mock_devices):

@@ -1,9 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Mic, X, Check, Info, Square } from 'lucide-react';
 import { useVoiceAssistant } from '../hooks/useVoiceAssistant';
 import type { VoiceAction } from '../hooks/useVoiceAssistant';
-import { LoadingSpinner } from './ui/LoadingSpinner';
 import { StatusDot } from './ui/StatusDot';
-import { CloseButton } from './ui/CloseButton';
 
 interface VoiceButtonProps {
   onAction?: (actions: VoiceAction[]) => void;
@@ -13,6 +12,7 @@ interface VoiceButtonProps {
 export function VoiceButton({ onAction, className = '' }: VoiceButtonProps) {
   const [showModal, setShowModal] = useState(false);
   const [recentActions, setRecentActions] = useState<VoiceAction[]>([]);
+  const conversationRef = useRef<HTMLDivElement>(null);
 
   const {
     isConnected,
@@ -30,6 +30,25 @@ export function VoiceButton({ onAction, className = '' }: VoiceButtonProps) {
       onAction?.(actions);
     },
   });
+
+  // Auto-scroll conversation to bottom
+  useEffect(() => {
+    if (conversationRef.current) {
+      conversationRef.current.scrollTop = conversationRef.current.scrollHeight;
+    }
+  }, [transcript, response, recentActions, error]);
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (showModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showModal]);
 
   // Toggle recording on/off
   const handleRecordToggle = useCallback(() => {
@@ -58,217 +77,261 @@ export function VoiceButton({ onAction, className = '' }: VoiceButtonProps) {
     setShowModal(false);
   }, [isRecording, stopRecording]);
 
-  const getButtonColor = () => {
-    if (!isConnected) return 'bg-zinc-700';
-    if (isRecording) return 'bg-red-500 animate-pulse';
-    if (isProcessing) return 'bg-amber-500';
-    return 'bg-violet-600 hover:bg-violet-500';
+  // Handle backdrop click
+  const handleBackdropClick = useCallback((e: React.MouseEvent) => {
+    if (e.target === e.currentTarget && !isRecording && !isProcessing) {
+      handleCloseModal();
+    }
+  }, [isRecording, isProcessing, handleCloseModal]);
+
+  const getButtonState = () => {
+    if (!isConnected) return 'disconnected';
+    if (isRecording) return 'recording';
+    if (isProcessing) return 'processing';
+    return 'ready';
   };
+
+  const buttonState = getButtonState();
 
   return (
     <>
-      {/* Header Button - opens modal */}
+      {/* Compact Header Button */}
       <button
         onClick={() => setShowModal(true)}
         className={`
-          relative p-2 rounded-lg transition-all duration-200
-          ${getButtonColor()}
-          ${!isConnected ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}
-          active:scale-95
+          relative flex items-center gap-2 px-3 py-1.5 rounded-full
+          transition-all duration-300 ease-out
+          ${buttonState === 'disconnected'
+            ? 'bg-zinc-800 text-zinc-500'
+            : buttonState === 'recording'
+            ? 'bg-red-500/20 text-red-400 ring-2 ring-red-500/50'
+            : buttonState === 'processing'
+            ? 'bg-amber-500/20 text-amber-400'
+            : 'bg-violet-500/20 text-violet-400 hover:bg-violet-500/30'
+          }
           ${className}
         `}
         title={isConnected ? 'Voice Assistant' : 'Connecting...'}
       >
-        {isProcessing ? (
-          <LoadingSpinner size="md" color="white" />
-        ) : (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-          </svg>
+        <StatusDot connected={isConnected} size="sm" />
+        <span className="text-sm font-medium">Belle</span>
+        {isProcessing && (
+          <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
         )}
-        
-        {/* Connection status dot */}
-        <StatusDot
-          connected={isConnected}
-          size="sm"
-          bordered
-          className="absolute -top-0.5 -right-0.5"
-        />
       </button>
 
-      {/* Voice Assistant Modal */}
+      {/* Voice Assistant Modal - Full screen on mobile, centered on desktop */}
       {showModal && (
-        <div 
-          className="fixed inset-0 bg-black/80 min-h-screen backdrop-blur-sm z-50 flex items-center justify-center sm:p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !isRecording && !isProcessing) {
-              handleCloseModal();
-            }
-          }}
+        <div
+          className="fixed top-0 left-0 right-0 bottom-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center sm:p-4"
+          style={{ minHeight: '100dvh' }}
+          onClick={handleBackdropClick}
         >
-          <div className="relative bg-zinc-900 w-full h-full sm:h-auto sm:max-w-sm sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col">
+          {/* Modal Content */}
+          <div className="w-full h-full sm:h-auto sm:max-h-[600px] sm:max-w-md bg-zinc-900 sm:rounded-3xl flex flex-col overflow-hidden">
             {/* Header */}
             <div className="px-6 py-4 bg-zinc-800/50 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
-                <StatusDot connected={isConnected} size="lg" />
-                <span className="font-semibold text-lg">Belle</span>
+                <div className={`
+                  w-10 h-10 rounded-full flex items-center justify-center
+                  ${isConnected ? 'bg-violet-500/20' : 'bg-zinc-700'}
+                `}>
+                  <Mic className="w-5 h-5 text-violet-400" />
+                </div>
+                <div>
+                  <h2 className="font-semibold text-white text-lg">Belle</h2>
+                  <p className="text-xs text-zinc-500">
+                    {!isConnected ? 'Connecting...' : 'Voice Assistant'}
+                  </p>
+                </div>
               </div>
-              <CloseButton
+              <button
                 onClick={handleCloseModal}
                 disabled={isRecording || isProcessing}
-                variant="subtle"
-                size="sm"
-              />
+                className="p-2 rounded-full hover:bg-zinc-700 transition-colors disabled:opacity-50"
+              >
+                <X className="w-6 h-6 text-zinc-400" />
+              </button>
             </div>
 
-            {/* Main Content - flex-grow on mobile to fill space */}
-            <div className="p-6 flex flex-col items-center justify-center flex-1 sm:flex-initial">
-              {/* Large Record Button - bigger on mobile */}
-              <div className="relative mb-6">
-                {/* Pulsing rings when recording */}
-                {isRecording && (
-                  <>
-                    <div className="absolute inset-0 rounded-full bg-red-500/20 animate-ping" style={{ animationDuration: '1.5s' }} />
-                    <div className="absolute -inset-6 sm:-inset-4 rounded-full bg-red-500/10 animate-pulse" />
-                  </>
-                )}
-                
-                <button
-                  onClick={handleRecordToggle}
-                  disabled={!isConnected || isProcessing}
-                  className={`
-                    relative w-32 h-32 sm:w-24 sm:h-24 rounded-full flex items-center justify-center
-                    transition-all duration-300 transform
-                    ${isRecording 
-                      ? 'bg-red-500 scale-110 shadow-lg shadow-red-500/50' 
-                      : isProcessing
-                      ? 'bg-amber-500 cursor-wait'
-                      : isConnected
-                      ? 'bg-violet-600 hover:bg-violet-500 hover:scale-105 active:scale-95'
-                      : 'bg-zinc-700 cursor-not-allowed opacity-60'
-                    }
-                  `}
-                >
-                  {isProcessing ? (
-                    <LoadingSpinner size="lg" color="white" />
-                  ) : isRecording ? (
-                    <svg className="w-12 h-12 sm:w-10 sm:h-10" fill="currentColor" viewBox="0 0 24 24">
-                      <rect x="6" y="6" width="12" height="12" rx="2" />
-                    </svg>
-                  ) : (
-                    <svg className="w-12 h-12 sm:w-10 sm:h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-
-              {/* Status Text */}
-              <div className="text-center mb-4">
-                <p className={`text-xl sm:text-lg font-medium ${isRecording ? 'text-red-400' : isProcessing ? 'text-amber-400' : 'text-zinc-300'}`}>
-                  {!isConnected ? 'Connecting...' : isRecording ? 'Listening...' : isProcessing ? 'Thinking...' : 'Tap to speak'}
-                </p>
-                {!isConnected && (
-                  <button onClick={connect} className="text-sm text-violet-400 hover:text-violet-300 mt-1">
-                    Retry connection
-                  </button>
-                )}
-              </div>
-
-              {/* Audio Waveform Animation (when recording) */}
-              {isRecording && (
-                <div className="flex items-center justify-center gap-1.5 h-10 sm:h-8 mb-4">
-                  {[...Array(7)].map((_, i) => (
-                    <div
-                      key={i}
-                      className="w-1.5 sm:w-1 bg-red-500 rounded-full animate-pulse"
-                      style={{
-                        height: `${Math.random() * 32 + 8}px`,
-                        animationDelay: `${i * 0.1}s`,
-                        animationDuration: '0.5s',
-                      }}
-                    />
-                  ))}
+            {/* Conversation Area - Scrollable, takes available space */}
+            <div
+              ref={conversationRef}
+              className="flex-1 overflow-y-auto px-6 py-4 space-y-3"
+            >
+              {/* Empty state */}
+              {!transcript && !response && !error && !isRecording && !isProcessing && (
+                <div className="h-full flex flex-col items-center justify-center text-center py-8">
+                  <div className="w-16 h-16 rounded-full bg-violet-500/10 flex items-center justify-center mb-4">
+                    <Mic className="w-8 h-8 text-violet-400" strokeWidth={1.5} />
+                  </div>
+                  <p className="text-zinc-400 text-sm">Tap the microphone to speak</p>
+                  <p className="text-zinc-600 text-xs mt-1">Ask Belle to control your devices</p>
                 </div>
               )}
-            </div>
 
-            {/* Conversation Area - scrollable, takes remaining space on mobile */}
-            <div className="px-6 pb-6 space-y-3 overflow-y-auto flex-1 sm:flex-initial sm:max-h-64">
-              {/* Transcript */}
+              {/* Transcript bubble */}
               {transcript && (
-                <div className="bg-zinc-800/50 rounded-2xl p-4">
-                  <p className="text-xs text-zinc-500 mb-1">You said:</p>
-                  <p className="text-zinc-200">{transcript}</p>
+                <div className="flex justify-end">
+                  <div className="bg-zinc-800 rounded-2xl rounded-tr-sm px-4 py-2.5 max-w-[85%]">
+                    <p className="text-sm text-zinc-200">{transcript}</p>
+                  </div>
                 </div>
               )}
 
-              {/* Response */}
+              {/* Response bubble */}
               {response && (
-                <div className="bg-violet-500/10 border border-violet-500/20 rounded-2xl p-4">
-                  <p className="text-xs text-violet-400 mb-1">Belle:</p>
-                  <p className="text-zinc-200">{response}</p>
+                <div className="flex justify-start">
+                  <div className="bg-violet-500/15 border border-violet-500/20 rounded-2xl rounded-tl-sm px-4 py-2.5 max-w-[85%]">
+                    <p className="text-sm text-zinc-200">{response}</p>
+                  </div>
                 </div>
               )}
 
               {/* Actions */}
-              {recentActions.length > 0 ? (
-                <div className="bg-zinc-800/30 rounded-2xl p-4">
-                  <p className="text-xs text-zinc-500 mb-2">Actions taken:</p>
-                  <div className="space-y-1.5">
-                    {recentActions.map((action, i) => (
-                      <div
-                        key={i}
-                        className={`text-sm flex items-center gap-2 ${action.success ? 'text-green-400' : 'text-red-400'}`}
-                      >
-                        {action.success ? (
-                          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        ) : (
-                          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        )}
-                        <span>{action.device}: {action.action}</span>
-                      </div>
-                    ))}
+              {recentActions.length > 0 && (
+                <div className="flex justify-start">
+                  <div className="bg-zinc-800/50 rounded-2xl px-4 py-3 max-w-[85%]">
+                    <p className="text-xs text-zinc-500 mb-2">Actions</p>
+                    <div className="space-y-1.5">
+                      {recentActions.map((action, i) => (
+                        <div
+                          key={i}
+                          className={`text-sm flex items-center gap-2 ${action.success ? 'text-emerald-400' : 'text-red-400'}`}
+                        >
+                          {action.success ? (
+                            <Check className="w-3.5 h-3.5 shrink-0" strokeWidth={2.5} />
+                          ) : (
+                            <X className="w-3.5 h-3.5 shrink-0" strokeWidth={2.5} />
+                          )}
+                          <span>{action.device}: {action.action}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              ) : response && (
-                <div className="bg-zinc-800/30 rounded-2xl p-4">
-                  <div className="text-sm flex items-center gap-2 text-blue-400">
-                    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>Status inquiry - no actions taken</span>
+              )}
+
+              {/* Info note when response but no actions */}
+              {response && recentActions.length === 0 && (
+                <div className="flex justify-start">
+                  <div className="flex items-center gap-2 text-xs text-blue-400/70 px-1">
+                    <Info className="w-3.5 h-3.5" />
+                    <span>Information only - no actions taken</span>
                   </div>
                 </div>
               )}
 
               {/* Error */}
               {error && (
-                <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-start gap-3">
-                  <svg className="w-5 h-5 text-red-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <div>
-                    <p className="text-red-400 text-sm">{error}</p>
+                <div className="flex justify-start">
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-2xl px-4 py-2.5 max-w-[85%]">
+                    <p className="text-sm text-red-400">{error}</p>
                   </div>
                 </div>
               )}
+            </div>
 
-              {/* Empty state */}
-              {!transcript && !response && !error && !isRecording && !isProcessing && (
-                <div className="text-center text-zinc-500 text-sm py-4">
-                  <p>Tap the microphone to start</p>
-                  <p className="text-xs mt-1">Ask Belle to control your devices</p>
+            {/* Voice Input Section - Fixed at bottom */}
+            <div className="shrink-0 px-6 py-6 bg-zinc-800/30 border-t border-zinc-800">
+              <div className="flex flex-col items-center">
+                {/* Status text */}
+                <p className={`
+                  text-sm font-medium mb-4 transition-colors
+                  ${isRecording ? 'text-red-400' : isProcessing ? 'text-amber-400' : 'text-zinc-500'}
+                `}>
+                  {!isConnected ? 'Connecting...' : isRecording ? 'Listening...' : isProcessing ? 'Thinking...' : 'Tap to speak'}
+                </p>
+
+                {/* Animated Voice Orb */}
+                <div className="relative">
+                  {/* Outer glow rings */}
+                  {isRecording && (
+                    <>
+                      <div className="absolute inset-0 -m-4 rounded-full bg-red-500/10 animate-ping" style={{ animationDuration: '2s' }} />
+                      <div className="absolute inset-0 -m-2 rounded-full bg-red-500/20 animate-pulse" />
+                    </>
+                  )}
+                  {isProcessing && (
+                    <div className="absolute inset-0 -m-2 rounded-full bg-amber-500/20 animate-pulse" />
+                  )}
+
+                  {/* Main Orb Button */}
+                  <button
+                    onClick={handleRecordToggle}
+                    disabled={!isConnected || isProcessing}
+                    className={`
+                      relative w-16 h-16 rounded-full
+                      flex items-center justify-center
+                      transition-all duration-300 ease-out
+                      ${isRecording
+                        ? 'bg-gradient-to-br from-red-500 to-rose-600 scale-110 shadow-lg shadow-red-500/30'
+                        : isProcessing
+                        ? 'bg-gradient-to-br from-amber-500 to-orange-500 cursor-wait shadow-lg shadow-amber-500/20'
+                        : isConnected
+                        ? 'bg-gradient-to-br from-violet-500 to-purple-600 hover:scale-105 active:scale-95 shadow-lg shadow-violet-500/20 hover:shadow-violet-500/40'
+                        : 'bg-zinc-700 cursor-not-allowed'
+                      }
+                    `}
+                  >
+                    {/* Inner gradient overlay */}
+                    <div className="absolute inset-1 rounded-full bg-gradient-to-t from-transparent to-white/20" />
+
+                    {/* Icon */}
+                    {isProcessing ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : isRecording ? (
+                      <Square className="w-5 h-5 text-white relative z-10" fill="white" />
+                    ) : (
+                      <Mic className="w-7 h-7 text-white relative z-10" strokeWidth={1.5} />
+                    )}
+                  </button>
                 </div>
-              )}
+
+                {/* Audio visualization when recording */}
+                {isRecording && (
+                  <div className="flex items-end justify-center gap-1 h-6 mt-3">
+                    {[...Array(5)].map((_, i) => (
+                      <div
+                        key={i}
+                        className="w-1 bg-red-400 rounded-full animate-waveform"
+                        style={{
+                          animationDelay: `${i * 0.1}s`,
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Retry connection button */}
+                {!isConnected && (
+                  <button
+                    onClick={connect}
+                    className="mt-3 text-sm text-violet-400 hover:text-violet-300 transition-colors"
+                  >
+                    Retry connection
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Keyframe animations */}
+      <style>{`
+        @keyframes waveform {
+          0%, 100% {
+            transform: scaleY(0.3);
+          }
+          50% {
+            transform: scaleY(1);
+          }
+        }
+        .animate-waveform {
+          animation: waveform 0.5s ease-in-out infinite;
+        }
+      `}</style>
     </>
   );
 }

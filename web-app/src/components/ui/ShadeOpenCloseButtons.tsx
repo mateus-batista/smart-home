@@ -38,10 +38,11 @@ function ShadeOpenCloseButtonsComponent({
   const openLoading = loading === true ? activeAction === 'open' : loading === 'open';
   const closeLoading = loading === true ? activeAction === 'close' : loading === 'close';
 
-  // Reset active action when loading finishes
+  // Reset active action when loading finishes (deferred to avoid sync setState in render)
   useEffect(() => {
     if (!isLoading && activeAction !== null) {
-      setActiveAction(null);
+      const timer = setTimeout(() => setActiveAction(null), 0);
+      return () => clearTimeout(timer);
     }
   }, [isLoading, activeAction]);
 

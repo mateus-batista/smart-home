@@ -58,6 +58,11 @@ router.put('/:id', async (req, res) => {
 // Delete a group
 router.delete('/:id', async (req, res) => {
   try {
+    // Check if group exists first
+    const group = await groupsService.getGroupById(req.params.id);
+    if (!group) {
+      return res.status(404).json({ error: 'Group not found' });
+    }
     await groupsService.deleteGroup(req.params.id);
     res.status(204).send();
   } catch (error) {
@@ -93,7 +98,10 @@ router.delete('/:groupId/devices/:deviceExternalId', async (req, res) => {
       return res.status(404).json({ error: 'Device not found' });
     }
 
-    await groupsService.removeDeviceFromGroup(req.params.groupId, device.id);
+    const result = await groupsService.removeDeviceFromGroup(req.params.groupId, device.id);
+    if (!result) {
+      return res.status(404).json({ error: 'Device is not in this group' });
+    }
     res.status(204).send();
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });

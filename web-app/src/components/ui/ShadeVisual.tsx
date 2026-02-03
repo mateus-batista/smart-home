@@ -8,26 +8,13 @@ interface ShadeVisualProps {
   className?: string;
 }
 
-/** Get visual openness for display purposes */
-export function getVisualOpenness(position: number, isBlindTilt: boolean): number {
-  if (isBlindTilt) {
-    // At 50, slats are horizontal (fully open) -> visual openness = 100
-    // At 0 or 100, slats are vertical (closed) -> visual openness = 0
-    const distanceFrom50 = Math.abs(position - 50);
-    return Math.round(100 - distanceFrom50 * 2);
-  }
-  return position;
-}
-
 function ShadeVisualComponent({ position, isBlindTilt, className = '' }: ShadeVisualProps) {
-  const visualOpenness = getVisualOpenness(position, isBlindTilt);
-
   if (isBlindTilt) {
     // Blind Tilt visual: show horizontal slats that rotate based on position
-    // At 50%: slats are horizontal (fully open, letting light through)
-    // At 0% or 100%: slats are vertical (closed, blocking light)
-    const tiltAngle = ((position - 50) / 50) * 90; // -90 to 90 degrees
-    const lightIntensity = visualOpenness / 100;
+    // At 0%: slats are horizontal (closed, blocking light)
+    // At 100%: slats are tilted down (fully open, letting light through)
+    const tiltAngle = (position / 100) * 90 - 45; // -45 to 45 degrees (horizontal to tilted)
+    const lightIntensity = position / 100;
 
     return (
       <div className={`relative w-32 h-40 mx-auto ${className}`}>
@@ -37,8 +24,8 @@ function ShadeVisualComponent({ position, isBlindTilt, className = '' }: ShadeVi
           <div
             className="absolute inset-0 transition-all duration-300"
             style={{
-              background: `linear-gradient(180deg, 
-                rgba(135, 206, 250, ${lightIntensity * 0.8}) 0%, 
+              background: `linear-gradient(180deg,
+                rgba(135, 206, 250, ${lightIntensity * 0.8}) 0%,
                 rgba(255, 255, 255, ${lightIntensity * 0.3}) 100%)`,
             }}
           />
@@ -72,8 +59,8 @@ function ShadeVisualComponent({ position, isBlindTilt, className = '' }: ShadeVi
         <div
           className="absolute inset-0 transition-all duration-300"
           style={{
-            background: `linear-gradient(180deg, 
-              rgba(135, 206, 250, ${(position / 100) * 0.8}) 0%, 
+            background: `linear-gradient(180deg,
+              rgba(135, 206, 250, ${(position / 100) * 0.8}) 0%,
               rgba(255, 255, 255, ${(position / 100) * 0.3}) 100%)`,
           }}
         />

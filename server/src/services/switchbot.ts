@@ -288,12 +288,11 @@ async function setPlugState(deviceId: string, state: Partial<DeviceState>): Prom
 
 /**
  * Get the position value for a Blind Tilt device based on desired state.
- * 
+ *
  * For Blind Tilt:
- * - position 50 = slats horizontal = fully open (maximum light)
- * - position 0 = slats tilted down = closed
- * - position 100 = slats tilted up = closed
- * 
+ * - position 100 = slats tilted down = fully open (lets light in)
+ * - position 0 = slats horizontal = closed (blocks light)
+ *
  * @param state - The desired device state
  * @returns The position value to send to the device, or null if no change needed
  */
@@ -302,9 +301,9 @@ export function getBlindTiltPosition(state: Partial<DeviceState>): number | null
     return state.brightness;
   }
   if (state.on !== undefined) {
-    // on=true -> fully open (position 50, horizontal slats)
-    // on=false -> fully closed downward (position 0)
-    return state.on ? 50 : 0;
+    // on=true -> fully open (position 100, slats tilted down to let light in)
+    // on=false -> fully closed (position 0, slats horizontal/blocking)
+    return state.on ? 100 : 0;
   }
   return null;
 }

@@ -354,21 +354,19 @@ def _is_blind_tilt(device: dict) -> bool:
 def _get_blind_tilt_position_for_openness(openness: int) -> int:
     """
     Convert visual openness (0-100) to Blind Tilt position.
-    
+
     For Blind Tilt devices:
-    - Position 50 = slats horizontal = fully open (100% visual openness)
-    - Position 0 = slats tilted down = closed (0% visual openness)
-    - Position 100 = slats tilted up = closed (0% visual openness)
-    
-    We always close downward (position 0) for consistency.
+    - Position 100 = slats tilted down = fully open (lets light in)
+    - Position 0 = slats horizontal = closed (blocks light)
+
+    We use position 0-100 range linearly mapping to openness 0-100.
     """
     if openness >= 100:
-        return 50  # Fully open = horizontal slats
+        return 100  # Fully open = slats tilted down
     elif openness <= 0:
-        return 0  # Fully closed = tilted down
+        return 0  # Fully closed = slats horizontal
     else:
-        # Linear interpolation: 0% openness -> position 0, 100% openness -> position 50
-        return int(openness / 2)
+        return openness  # Linear mapping
 
 
 async def control_shade(
@@ -417,8 +415,8 @@ async def control_shade(
         if action == "open":
             state_update["on"] = True
             if is_blind_tilt:
-                # Blind Tilt: 50 = horizontal slats = fully open
-                state_update["brightness"] = 50
+                # Blind Tilt: 100 = slats tilted down = fully open (lets light in)
+                state_update["brightness"] = 100
             else:
                 state_update["brightness"] = 100  # 100% open
         elif action == "close":

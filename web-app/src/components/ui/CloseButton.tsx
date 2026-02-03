@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { X } from 'lucide-react';
 
 interface CloseButtonProps {
   onClick: () => void;
@@ -23,9 +24,9 @@ function CloseButtonComponent({
     subtle: 'p-2 rounded-xl hover:bg-zinc-700/50 text-zinc-400 hover:text-white',
   };
 
-  const sizeClasses = {
-    sm: 'w-5 h-5',
-    md: 'w-6 h-6',
+  const sizeMap = {
+    sm: 20,
+    md: 24,
   };
 
   return (
@@ -34,19 +35,7 @@ function CloseButtonComponent({
       disabled={disabled}
       className={`transition-colors ${variantClasses[variant]} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
     >
-      <svg
-        className={sizeClasses[size]}
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M6 18L18 6M6 6l12 12"
-        />
-      </svg>
+      <X size={sizeMap[size]} strokeWidth={2} />
     </button>
   );
 }

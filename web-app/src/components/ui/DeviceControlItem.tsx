@@ -94,7 +94,7 @@ function DeviceControlItemComponent({
           disabled={!device.reachable}
           label={isShade ? 'Position' : 'Brightness'}
           valueDisplay={`${displayValue}%`}
-          fillColor={isShade ? 'rgba(59, 130, 246, 0.5)' : 'rgba(255,255,255,0.4)'}
+          fillColor={isShade ? 'rgba(59, 130, 246, 0.6)' : 'rgba(251, 191, 36, 0.6)'}
         />
       )}
     </div>

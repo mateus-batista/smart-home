@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, Check, X, Pencil, Plus, Trash2, Search, Sun, Layers, Ban } from 'lucide-react';
 import type { DeviceGroup, Room, Light } from '../types/devices';
-import { isShadeDevice } from '../types/devices';
+import { isShadeDevice, getGroupType, canAddDeviceToGroup } from '../types/devices';
 import { CloseButton } from './ui/CloseButton';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import { EmptyState, EmptyStateIcons } from './ui/EmptyState';
@@ -56,20 +57,22 @@ export function GroupManager({
   const [selectedDevice, setSelectedDevice] = useState<Light | null>(null);
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId);
-  const groupDeviceIds = new Set(selectedGroup?.devices?.map((d) => d.device.externalId) ?? []);
+
+  // Memoize the set of device IDs in the group
+  const groupDeviceIds = useMemo(
+    () => new Set(selectedGroup?.devices?.map((d) => d.device.externalId) ?? []),
+    [selectedGroup?.devices]
+  );
 
   // Get actual device objects in the group
-  const groupDevices = useMemo(() =>
-    devices.filter(d => groupDeviceIds.has(d.id)),
+  const groupDevices = useMemo(
+    () => devices.filter(d => groupDeviceIds.has(d.id)),
     [devices, groupDeviceIds]
   );
 
-  // Check if this is a shade group (majority of devices are shades)
-  const isShadeGroup = useMemo(() => {
-    if (groupDevices.length === 0) return false;
-    const shadeCount = groupDevices.filter(d => isShadeDevice(d)).length;
-    return shadeCount > groupDevices.length / 2;
-  }, [groupDevices]);
+  // Determine group type for consistent behavior
+  const groupType = useMemo(() => getGroupType(groupDevices), [groupDevices]);
+  const isShadeGroup = groupType === 'shade';
 
   // Derive group state from actual devices
   const groupState = useMemo(() => {
@@ -130,6 +133,14 @@ export function GroupManager({
     if (isInGroup) {
       await onRemoveDeviceFromGroup(selectedGroupId, deviceId);
     } else {
+      // Check type compatibility before adding
+      const device = devices.find(d => d.id === deviceId);
+      if (device) {
+        const { allowed } = canAddDeviceToGroup(device, groupDevices);
+        if (!allowed) {
+          return; // Don't add incompatible device
+        }
+      }
       await onAddDeviceToGroup(selectedGroupId, deviceId);
     }
   };
@@ -211,17 +222,74 @@ export function GroupManager({
       <div className="bg-zinc-900 w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-2xl sm:rounded-3xl rounded-t-3xl overflow-hidden flex flex-col shadow-2xl border-t sm:border border-zinc-800">
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-zinc-800 flex items-center justify-between shrink-0">
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-white truncate">
-              {viewMode === 'create' ? 'New Group' : viewMode === 'edit' ? selectedGroup?.name : 'Groups'}
-            </h2>
-            <p className="text-xs text-zinc-500 mt-0.5">
-              {viewMode === 'create'
-                ? 'Control multiple devices together'
-                : viewMode === 'edit'
-                  ? `${selectedGroup?.devices?.length ?? 0} devices${selectedGroup?.room ? ` • ${selectedGroup.room.name}` : ''}`
-                  : `${groups.length} group${groups.length !== 1 ? 's' : ''}`}
-            </p>
+          <div className="min-w-0 flex items-center gap-3">
+            {/* Show back arrow only when navigating from list (not opened directly) */}
+            {viewMode === 'edit' && !initialGroupId && (
+              <button
+                onClick={() => {
+                  setSelectedGroupId(null);
+                  setViewMode('list');
+                  setEditingName(null);
+                  setEditTab('controls');
+                }}
+                className="p-1.5 -ml-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+            )}
+            <div className="min-w-0">
+              {viewMode === 'edit' && editingName !== null ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleRenameGroup();
+                      if (e.key === 'Escape') setEditingName(null);
+                    }}
+                    className="py-1 px-2 bg-zinc-800 border border-zinc-600 rounded-lg text-white font-semibold text-lg outline-none focus:border-purple-500 w-48"
+                    autoFocus
+                  />
+                  <button
+                    onClick={handleRenameGroup}
+                    disabled={isLoading || !editingName.trim()}
+                    className="p-1.5 rounded-lg bg-purple-500 hover:bg-purple-400 disabled:bg-zinc-600 text-white transition-colors"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setEditingName(null)}
+                    className="p-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-400 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {viewMode === 'edit' ? (
+                    <button
+                      onClick={() => setEditingName(selectedGroup?.name ?? '')}
+                      className="flex items-center gap-2 group"
+                    >
+                      <h2 className="text-lg font-semibold text-white truncate">{selectedGroup?.name}</h2>
+                      <Pencil className="w-3.5 h-3.5 text-zinc-500 group-hover:text-white transition-colors shrink-0" />
+                    </button>
+                  ) : (
+                    <h2 className="text-lg font-semibold text-white truncate">
+                      {viewMode === 'create' ? 'New Group' : 'Groups'}
+                    </h2>
+                  )}
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    {viewMode === 'create'
+                      ? 'Control multiple devices together'
+                      : viewMode === 'edit'
+                        ? `${selectedGroup?.devices?.length ?? 0} devices${selectedGroup?.room ? ` • ${selectedGroup.room.name}` : ''}`
+                        : `${groups.length} group${groups.length !== 1 ? 's' : ''}`}
+                  </p>
+                </>
+              )}
+            </div>
           </div>
           <CloseButton onClick={onClose} />
         </div>
@@ -236,9 +304,7 @@ export function GroupManager({
                 onClick={() => setViewMode('create')}
                 className="w-full mb-4 py-3 px-4 bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 hover:border-green-500/50 rounded-xl transition-all flex items-center justify-center gap-2"
               >
-                <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
+                <Plus className="w-5 h-5 text-green-400" />
                 <span className="font-medium text-green-400">New Group</span>
               </button>
 
@@ -253,6 +319,12 @@ export function GroupManager({
                 <div className="space-y-2">
                   {groups.map((group) => {
                     const deviceCount = group.devices?.length ?? 0;
+                    // Get actual devices in this group to determine type
+                    const groupDeviceIdsForList = new Set(group.devices?.map(d => d.device.externalId) ?? []);
+                    const groupDevicesForList = devices.filter(d => groupDeviceIdsForList.has(d.id));
+                    const groupTypeForList = getGroupType(groupDevicesForList);
+                    const isShadeGroupForList = groupTypeForList === 'shade';
+
                     return (
                       <div
                         key={group.id}
@@ -263,15 +335,30 @@ export function GroupManager({
                         className="p-3 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-700/50 hover:border-zinc-600 cursor-pointer transition-all group flex items-center justify-between"
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-9 h-9 rounded-lg bg-purple-500/20 flex items-center justify-center shrink-0">
-                            <svg className="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                            </svg>
+                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                            isShadeGroupForList
+                              ? 'bg-blue-500/20'
+                              : groupTypeForList === 'empty'
+                              ? 'bg-purple-500/20'
+                              : 'bg-amber-500/20'
+                          }`}>
+                            {isShadeGroupForList ? (
+                              <svg className="w-4 h-4 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <rect x="3" y="3" width="18" height="18" rx="2" />
+                                <line x1="5" y1="8" x2="19" y2="8" />
+                                <line x1="5" y1="12" x2="19" y2="12" />
+                                <line x1="5" y1="16" x2="19" y2="16" />
+                              </svg>
+                            ) : groupTypeForList === 'empty' ? (
+                              <Layers className="w-4 h-4 text-purple-400" />
+                            ) : (
+                              <Sun className="w-4 h-4 text-amber-400" />
+                            )}
                           </div>
                           <div className="min-w-0">
                             <h3 className="font-medium text-white text-sm truncate">{group.name}</h3>
                             <p className="text-xs text-zinc-500">
-                              {deviceCount} device{deviceCount !== 1 ? 's' : ''}
+                              {deviceCount} {isShadeGroupForList ? 'shade' : groupTypeForList === 'empty' ? 'device' : 'light'}{deviceCount !== 1 ? 's' : ''}
                               {group.room && ` • ${group.room.name}`}
                             </p>
                           </div>
@@ -284,13 +371,9 @@ export function GroupManager({
                             }}
                             className="p-2 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 transition-all"
                           >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
+                            <Trash2 className="w-4 h-4" />
                           </button>
-                          <svg className="w-4 h-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
+                          <ChevronRight className="w-4 h-4 text-zinc-500" />
                         </div>
                       </div>
                     );
@@ -307,9 +390,7 @@ export function GroupManager({
                 onClick={() => setViewMode('list')}
                 className="mb-4 flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
+                <ChevronLeft className="w-4 h-4" />
                 <span className="text-sm">Back</span>
               </button>
 
@@ -367,70 +448,6 @@ export function GroupManager({
           {/* Edit View */}
           {viewMode === 'edit' && selectedGroup && (
             <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Back button */}
-              <div className="px-4 pt-3 shrink-0">
-                <button
-                  onClick={() => {
-                    setSelectedGroupId(null);
-                    setViewMode('list');
-                    setEditingName(null);
-                    setEditTab('controls');
-                  }}
-                  className="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                  <span className="text-sm">Back</span>
-                </button>
-              </div>
-
-              {/* Group name (editable) */}
-              <div className="px-4 py-3 shrink-0">
-                {editingName !== null ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={editingName}
-                      onChange={(e) => setEditingName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleRenameGroup();
-                        if (e.key === 'Escape') setEditingName(null);
-                      }}
-                      className="flex-1 py-1.5 px-3 bg-zinc-800 border border-zinc-600 rounded-lg text-white font-medium outline-none focus:border-purple-500"
-                      autoFocus
-                    />
-                    <button
-                      onClick={handleRenameGroup}
-                      disabled={isLoading || !editingName.trim()}
-                      className="p-1.5 rounded-lg bg-purple-500 hover:bg-purple-400 disabled:bg-zinc-600 text-white transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => setEditingName(null)}
-                      className="p-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-400 transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setEditingName(selectedGroup.name)}
-                    className="flex items-center gap-2 text-left group"
-                  >
-                    <span className="font-semibold text-white text-lg">{selectedGroup.name}</span>
-                    <svg className="w-3.5 h-3.5 text-zinc-500 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-
               {/* Group-level controls */}
               {groupDevices.length > 0 && (
                 <div className="px-4 sm:px-5 py-4 space-y-5 border-b border-zinc-800 shrink-0 bg-zinc-800/30">
@@ -471,9 +488,9 @@ export function GroupManager({
                     valueDisplay={`${displayGroupBrightness}%`}
                     gradient={isShadeGroup
                       ? 'linear-gradient(to right, #374151, #3b82f6, #87ceeb)'
-                      : undefined
+                      : 'linear-gradient(to right, #27272a, #78716c, #fbbf24, #fef3c7)'
                     }
-                    hints={isShadeGroup ? { start: 'Closed', end: 'Open' } : undefined}
+                    hints={isShadeGroup ? { start: 'Closed', end: 'Open' } : { start: 'Dim', end: 'Bright' }}
                   />
                 </div>
               )}
@@ -549,9 +566,7 @@ export function GroupManager({
                   {/* Search */}
                   <div className="p-3 border-b border-zinc-800 shrink-0">
                     <div className="relative">
-                      <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                      </svg>
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                       <input
                         type="text"
                         value={searchQuery}
@@ -562,25 +577,65 @@ export function GroupManager({
                     </div>
                   </div>
 
+                  {/* Group type indicator */}
+                  {groupDevices.length > 0 && (
+                    <div className="px-3 pb-2">
+                      <div className={`text-xs px-2 py-1 rounded-full inline-flex items-center gap-1.5 ${
+                        isShadeGroup
+                          ? 'bg-blue-500/20 text-blue-400'
+                          : 'bg-amber-500/20 text-amber-400'
+                      }`}>
+                        {isShadeGroup ? (
+                          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" />
+                            <line x1="5" y1="8" x2="19" y2="8" />
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                          </svg>
+                        ) : (
+                          <Sun className="w-3 h-3" />
+                        )}
+                        <span>{isShadeGroup ? 'Shade group' : 'Light group'} - only {isShadeGroup ? 'shades' : 'lights'} can be added</span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Device list */}
                   <div className="flex-1 overflow-y-auto p-3">
                     <div className="space-y-1.5">
                       {filteredDevices.map((device) => {
                         const isInGroup = groupDeviceIds.has(device.id);
+                        const { allowed, reason } = canAddDeviceToGroup(device, groupDevices);
+                        const isDeviceShade = isShadeDevice(device);
+                        const isDisabled = !isInGroup && !allowed;
+
                         return (
                           <button
                             key={device.id}
-                            onClick={() => handleToggleDevice(device.id)}
+                            onClick={() => !isDisabled && handleToggleDevice(device.id)}
+                            disabled={isDisabled}
+                            title={isDisabled ? reason : undefined}
                             className={`w-full p-2.5 rounded-lg flex items-center justify-between transition-all ${
                               isInGroup
                                 ? 'bg-green-500/15 border border-green-500/30'
+                                : isDisabled
+                                ? 'bg-zinc-800/30 border border-transparent opacity-50 cursor-not-allowed'
                                 : 'bg-zinc-800/50 border border-transparent hover:bg-zinc-800'
                             }`}
                           >
                             <div className="flex items-center gap-2.5 min-w-0">
                               <StatusDot connected={device.reachable} />
                               <div className="text-left min-w-0">
-                                <p className="font-medium text-white text-sm truncate">{device.name}</p>
+                                <div className="flex items-center gap-1.5">
+                                  <p className="font-medium text-white text-sm truncate">{device.name}</p>
+                                  {/* Device type badge */}
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${
+                                    isDeviceShade
+                                      ? 'bg-blue-500/20 text-blue-400'
+                                      : 'bg-amber-500/20 text-amber-400'
+                                  }`}>
+                                    {isDeviceShade ? 'shade' : 'light'}
+                                  </span>
+                                </div>
                                 <p className="text-xs text-zinc-500 truncate">
                                   {device.roomName || (device.type === 'hue' ? 'Philips Hue' : device.type === 'nanoleaf' ? 'Nanoleaf' : 'SwitchBot')}
                                 </p>
@@ -590,13 +645,16 @@ export function GroupManager({
                               className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all ${
                                 isInGroup
                                   ? 'bg-green-500 text-white'
+                                  : isDisabled
+                                  ? 'bg-zinc-800 text-zinc-600'
                                   : 'bg-zinc-700 text-zinc-500'
                               }`}
                             >
                               {isInGroup && (
-                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
+                                <Check className="w-3 h-3" strokeWidth={3} />
+                              )}
+                              {isDisabled && (
+                                <Ban className="w-3 h-3" />
                               )}
                             </div>
                           </button>

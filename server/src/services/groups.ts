@@ -106,16 +106,29 @@ export async function addDeviceToGroup(groupId: string, deviceId: string) {
 
 /**
  * Remove a device from a group.
+ * Returns the deleted membership, or null if it didn't exist.
  */
 export async function removeDeviceFromGroup(groupId: string, deviceId: string) {
-  return prisma.deviceGroupMembership.delete({
-    where: {
-      deviceId_groupId: {
-        deviceId,
-        groupId,
+  try {
+    return await prisma.deviceGroupMembership.delete({
+      where: {
+        deviceId_groupId: {
+          deviceId,
+          groupId,
+        },
       },
-    },
-  });
+    });
+  } catch (error) {
+    // Handle "Record not found" error (Prisma P2025)
+    if (
+      error instanceof Error &&
+      'code' in error &&
+      (error as { code: string }).code === 'P2025'
+    ) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 /**

@@ -164,9 +164,11 @@ export function RoomView({
   onEditGroup,
   onDeleteGroup,
   onSetGroupState,
-  onDeleteRoom,
+  onDeleteRoom: _onDeleteRoom,
   onRefresh,
 }: RoomViewProps) {
+  // onDeleteRoom is available for future use
+  void _onDeleteRoom;
   // Organize devices and groups by room
   const roomData = useMemo(() => {
     const data: Array<{

@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import type { Light } from '../types/devices';
-import { getVisualOpenness } from './ui/ShadeVisual';
+import { getVisualOpenness } from '../utils/shadeHelpers';
 import { ShadeOpenCloseButtons } from './ui/ShadeOpenCloseButtons';
 
 interface ShadeCardProps {
