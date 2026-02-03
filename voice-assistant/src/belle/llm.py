@@ -49,17 +49,6 @@ def _load_model():
     from mlx_lm import load
 
     _model, _tokenizer = load(settings.llm_model)
-
-    # Set ChatML template if not present (needed for Hermes models)
-    if _tokenizer.chat_template is None:
-        logger.info("Setting ChatML chat template for Hermes model")
-        _tokenizer.chat_template = (
-            "{% for message in messages %}"
-            "{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}"
-            "{% endfor %}"
-            "{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}"
-        )
-
     logger.info("LLM model loaded successfully")
     return _model, _tokenizer
 
@@ -233,37 +222,24 @@ async def chat(
     context_json = json.dumps(smart_home_context, indent=2, ensure_ascii=False)
     logger.debug(f"Smart home context: {context_json[:300]}...")
 
-    # Format tools for Hermes
-    tools_json = json.dumps([t["function"] for t in ALL_TOOLS], indent=2)
+    # Build system prompt with context (tools are passed separately to the template)
+    system_prompt_with_context = f"""{SYSTEM_PROMPT}
 
-    # Build Hermes-style system prompt with structured context and tools
-    hermes_system_prompt = f"""{SYSTEM_PROMPT}
-
-You are also a function calling AI model. You have access to the current smart home state and available tools.
+{TOOL_INSTRUCTIONS}
 
 <context>
 {context_json}
 </context>
 
-<tools>
-{tools_json}
-</tools>
-
 IMPORTANT: Use device/room names EXACTLY as they appear in the context above. Don't make assumptions about values.
-
-When you need to call a function, return a JSON object within <tool_call></tool_call> XML tags:
-<tool_call>
-{{"name": "function_name", "arguments": {{"param1": "value1"}}}}
-</tool_call>
-
-You can call multiple tools by using multiple <tool_call> tags.
 After tool execution, provide a brief confirmation."""
 
-    messages = _build_messages(user_message, conversation_history, hermes_system_prompt)
+    messages = _build_messages(user_message, conversation_history, system_prompt_with_context)
 
-    # Apply chat template
+    # Apply chat template with native Qwen tool support
     prompt = tokenizer.apply_chat_template(
         messages,
+        tools=ALL_TOOLS,
         tokenize=False,
         add_generation_prompt=True,
     )
@@ -323,7 +299,7 @@ After tool execution, provide a brief confirmation."""
         # Add the assistant's response with tool calls
         messages.append({"role": "assistant", "content": response_text})
 
-        # Add tool results using the 'tool' role (Hermes format)
+        # Add tool results using the 'tool' role
         for tr in tool_results:
             tool_result_content = json.dumps({
                 "name": tr["tool"],
@@ -350,9 +326,10 @@ After tool execution, provide a brief confirmation."""
             "content": followup_instruction,
         })
 
-        # Apply chat template again
+        # Apply chat template again (include tools for consistent formatting)
         followup_prompt = tokenizer.apply_chat_template(
             messages,
+            tools=ALL_TOOLS,
             tokenize=False,
             add_generation_prompt=True,
         )
