@@ -197,7 +197,7 @@ class TestGetSmartHomeContext:
             assert "## Current Smart Home State" in context
             assert "**Rooms:**" in context
             assert "**Groups:**" in context
-            assert "**All Devices:**" in context
+            assert "**Lights:**" in context
 
             # Verify rooms are mentioned
             assert "Kitchen" in context

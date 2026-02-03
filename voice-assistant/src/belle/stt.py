@@ -94,10 +94,69 @@ def transcribe_audio(
     # Perform transcription
     result = mlx_whisper.transcribe(audio, **options)
 
+    # Calculate confidence metrics from segments
+    segments = result.get("segments", [])
+    confidence = _calculate_confidence(segments)
+
     return {
         "text": result.get("text", "").strip(),
         "language": result.get("language", "unknown"),
-        "segments": result.get("segments", []),
+        "segments": segments,
+        "confidence": confidence,
+    }
+
+
+def _calculate_confidence(segments: list[dict]) -> dict:
+    """
+    Calculate confidence metrics from transcription segments.
+
+    Returns:
+        dict with:
+            - avg_logprob: Average log probability (higher = more confident, typically -0.5 to 0)
+            - no_speech_prob: Average probability of no speech (lower = more confident)
+            - confidence_score: Normalized 0-1 score (higher = better)
+            - quality: "high", "medium", or "low" quality label
+    """
+    if not segments:
+        return {
+            "avg_logprob": 0.0,
+            "no_speech_prob": 0.0,
+            "confidence_score": 0.0,
+            "quality": "low",
+        }
+
+    # Extract metrics from segments
+    logprobs = [s.get("avg_logprob", -1.0) for s in segments if "avg_logprob" in s]
+    no_speech_probs = [s.get("no_speech_prob", 0.5) for s in segments if "no_speech_prob" in s]
+
+    avg_logprob = sum(logprobs) / len(logprobs) if logprobs else -1.0
+    avg_no_speech = sum(no_speech_probs) / len(no_speech_probs) if no_speech_probs else 0.5
+
+    # Normalize to 0-1 score
+    # avg_logprob typically ranges from -1.0 (low confidence) to 0 (high confidence)
+    # Convert to 0-1 where 1 is best
+    logprob_score = max(0.0, min(1.0, (avg_logprob + 1.0)))
+
+    # no_speech_prob: 0 = definitely speech, 1 = definitely not speech
+    # Invert so 1 = confident it's speech
+    speech_score = 1.0 - avg_no_speech
+
+    # Combined confidence score (weighted average)
+    confidence_score = 0.7 * logprob_score + 0.3 * speech_score
+
+    # Quality label
+    if confidence_score >= 0.7:
+        quality = "high"
+    elif confidence_score >= 0.4:
+        quality = "medium"
+    else:
+        quality = "low"
+
+    return {
+        "avg_logprob": round(avg_logprob, 3),
+        "no_speech_prob": round(avg_no_speech, 3),
+        "confidence_score": round(confidence_score, 3),
+        "quality": quality,
     }
 
 

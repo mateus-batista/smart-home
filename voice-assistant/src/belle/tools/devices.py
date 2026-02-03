@@ -5,7 +5,7 @@ from typing import Any
 
 import httpx
 
-from belle.http import Cache, find_by_name, get_client
+from belle.http import SmartCache, find_by_name, get_client, get_close_matches_for_name
 
 logger = logging.getLogger(__name__)
 
@@ -119,11 +119,29 @@ DEVICE_TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_device_help",
+            "description": "Get help about what you can do with a specific device. Use this when user asks 'what can I do with...', 'help with...', 'how do I use...', or similar questions about a device's capabilities.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "device_name": {
+                        "type": "string",
+                        "description": "The name of the device to get help for",
+                    },
+                },
+                "required": ["device_name"],
+            },
+        },
+    },
 ]
 
 
 # Shared cache instance
-_device_cache = Cache(ttl=30.0)
+# Smart cache: 30s normally, 5s after control operations
+_device_cache = SmartCache(base_ttl=30.0, short_ttl=5.0, activity_window=60.0)
 
 
 async def _refresh_device_cache() -> list[dict]:
@@ -189,9 +207,11 @@ async def get_device_status(device_name: str) -> dict[str, Any]:
         device = find_by_name(devices, device_name)
 
         if not device:
+            suggestions = get_close_matches_for_name(devices, device_name)
             return {
                 "success": False,
                 "error": f"Device '{device_name}' not found",
+                "suggestions": suggestions if suggestions else None,
                 "available_devices": [d.get("name") for d in devices],
             }
 
@@ -246,11 +266,13 @@ async def control_device(
             if might_be_room:
                 error_msg += ". This looks like a room request - use control_room instead"
 
+            suggestions = get_close_matches_for_name(devices, device_name)
             return {
                 "success": False,
                 "error": error_msg,
-                "available_devices": [d.get("name") for d in devices],
-                "suggestion": "Use control_room to control all lights in a room" if might_be_room else None,
+                "suggestions": suggestions if suggestions else None,
+                "available_devices": [d.get("name") for d in devices[:10]],  # Limit to first 10
+                "hint": "Use control_room to control all lights in a room" if might_be_room else None,
             }
 
         # Build state update
@@ -463,10 +485,118 @@ async def control_shade(
         return {"success": False, "error": str(e)}
 
 
+# Shade device types for capability detection
+SHADE_DEVICE_TYPES = ["Curtain", "Curtain3", "Blind Tilt", "Roller Shade"]
+
+
+def _get_device_capabilities(device: dict) -> dict[str, Any]:
+    """
+    Analyze a device and return its capabilities.
+
+    Returns:
+        Dict with capability flags and descriptions
+    """
+    state = device.get("state", {})
+    device_type = device.get("deviceType") or device.get("type", "")
+    name_lower = device.get("name", "").lower()
+
+    # Check if it's a shade device
+    is_shade = (
+        device_type in SHADE_DEVICE_TYPES
+        or any(kw in name_lower for kw in ["shade", "curtain", "blind", "persiana", "cortina"])
+    )
+
+    # Check if it's a Blind Tilt (special handling)
+    is_blind_tilt = device_type == "Blind Tilt"
+
+    # Detect capabilities from state keys
+    capabilities = {
+        "on_off": "on" in state,
+        "brightness": "brightness" in state,
+        "color": "color" in state or any(k in state for k in ["hue", "saturation"]),
+        "color_temp": "colorTemp" in state or "ct" in state,
+        "is_shade": is_shade,
+        "is_blind_tilt": is_blind_tilt,
+    }
+
+    return capabilities
+
+
+async def get_device_help(device_name: str) -> dict[str, Any]:
+    """
+    Get help about what you can do with a device.
+
+    Args:
+        device_name: Name of the device
+
+    Returns:
+        Help information about the device's capabilities
+    """
+    try:
+        devices = await _get_cached_devices()
+        device = find_by_name(devices, device_name)
+
+        if not device:
+            suggestions = get_close_matches_for_name(devices, device_name)
+            return {
+                "success": False,
+                "error": f"Device '{device_name}' not found",
+                "suggestions": suggestions if suggestions else None,
+            }
+
+        caps = _get_device_capabilities(device)
+        device_display_name = device.get("name")
+        device_type = device.get("deviceType") or device.get("type", "unknown")
+
+        # Build help text based on capabilities
+        actions = []
+
+        if caps["is_shade"]:
+            actions.append("• Open/close: 'open the {name}', 'close the {name}'")
+            actions.append("• Set position: 'set {name} to 50%'")
+            if caps["is_blind_tilt"]:
+                actions.append("• Note: This is a blind with tilting slats. 'Open' sets horizontal slats, 'close' tilts them down.")
+        else:
+            if caps["on_off"]:
+                actions.append("• Turn on/off: 'turn on {name}', 'turn off {name}'")
+            if caps["brightness"]:
+                actions.append("• Set brightness: 'set {name} to 50%', 'dim {name}', 'brighten {name}'")
+            if caps["color"]:
+                actions.append("• Set color: 'set {name} to red', 'make {name} blue'")
+            if caps["color_temp"]:
+                actions.append("• Set warmth: 'make {name} warmer', 'set {name} to cool white'")
+
+        if not actions:
+            actions.append("• Turn on/off: 'turn on {name}', 'turn off {name}'")
+
+        # Format help text
+        help_lines = [a.format(name=device_display_name) for a in actions]
+
+        return {
+            "success": True,
+            "device": device_display_name,
+            "type": device_type,
+            "capabilities": caps,
+            "help": help_lines,
+            "summary": f"{device_display_name} is a {device_type}. You can: " + ", ".join(
+                ["turn it on/off"] if caps["on_off"] else []
+                + (["adjust brightness"] if caps["brightness"] else [])
+                + (["change color"] if caps["color"] else [])
+                + (["adjust color temperature"] if caps["color_temp"] else [])
+                + (["open/close it"] if caps["is_shade"] else [])
+            ) or "control it with basic on/off commands",
+        }
+
+    except httpx.HTTPError as e:
+        logger.error(f"Failed to get device help: {e}")
+        return {"success": False, "error": str(e)}
+
+
 # Map tool names to functions
 DEVICE_TOOL_FUNCTIONS = {
     "get_all_devices": get_all_devices,
     "get_device_status": get_device_status,
     "control_device": control_device,
     "control_shade": control_shade,
+    "get_device_help": get_device_help,
 }

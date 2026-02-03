@@ -519,7 +519,7 @@ class TestErrorHandling:
             with patch("belle.tools.devices._get_cached_devices", new_callable=AsyncMock) as mock:
                 mock.return_value = mock_devices
 
-                result = await control_device("Nonexistent Light", on=True)
+                result = await control_device("ZZZZZ Unknown Device", on=True)
 
                 assert result["success"] is False
                 assert "not found" in result["error"]

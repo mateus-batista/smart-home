@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npx tsc:*)",
       "Bash(npm test)",
-      "Bash(timeout 10 npm run dev:*)"
+      "Bash(timeout 10 npm run dev:*)",
+      "Bash(uv run pytest:*)"
     ]
   }
 }

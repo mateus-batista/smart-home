@@ -5,7 +5,7 @@ from typing import Any
 
 import httpx
 
-from belle.http import Cache, find_by_name, get_client
+from belle.http import SmartCache, find_by_name, get_client, get_close_matches_for_name
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +91,8 @@ ROOM_TOOLS = [
 
 
 # Shared cache instance
-_room_cache = Cache(ttl=30.0)
+# Smart cache: 30s normally, 5s after control operations
+_room_cache = SmartCache(base_ttl=30.0, short_ttl=5.0, activity_window=60.0)
 
 
 async def _refresh_room_cache() -> list[dict]:
@@ -163,13 +164,17 @@ async def control_room(
         room = find_by_name(rooms, room_name)
 
         if not room:
+            suggestions = get_close_matches_for_name(rooms, room_name)
             return {
                 "success": False,
                 "error": f"Room '{room_name}' not found",
+                "suggestions": suggestions if suggestions else None,
                 "available_rooms": [r.get("name") for r in rooms],
             }
 
-        devices = room.get("devices", [])
+        all_devices = room.get("devices", [])
+        # Filter out shade devices - they should only be controlled via control_room_shades
+        devices = [d for d in all_devices if not _is_shade_device(d)]
         if not devices:
             return {
                 "success": True,
@@ -309,14 +314,16 @@ async def control_room_shades(
         room = find_by_name(rooms, room_name)
 
         if not room:
+            suggestions = get_close_matches_for_name(rooms, room_name)
             return {
                 "success": False,
                 "error": f"Room '{room_name}' not found",
+                "suggestions": suggestions if suggestions else None,
                 "available_rooms": [r.get("name") for r in rooms],
             }
 
         devices = room.get("devices", [])
-        
+
         # Filter to shade devices only
         shade_devices = [d for d in devices if _is_shade_device(d)]
         

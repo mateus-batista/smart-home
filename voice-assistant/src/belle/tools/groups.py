@@ -5,7 +5,7 @@ from typing import Any
 
 import httpx
 
-from belle.http import Cache, find_by_name, get_client
+from belle.http import SmartCache, find_by_name, get_client, get_close_matches_for_name
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,8 @@ GROUP_TOOLS = [
 
 
 # Shared cache instance
-_group_cache = Cache(ttl=30.0)
+# Smart cache: 30s normally, 5s after control operations
+_group_cache = SmartCache(base_ttl=30.0, short_ttl=5.0, activity_window=60.0)
 
 
 async def _refresh_group_cache() -> list[dict]:
@@ -132,9 +133,11 @@ async def control_group(
         group = find_by_name(groups, group_name)
 
         if not group:
+            suggestions = get_close_matches_for_name(groups, group_name)
             return {
                 "success": False,
                 "error": f"Group '{group_name}' not found",
+                "suggestions": suggestions if suggestions else None,
                 "available_groups": [g.get("name") for g in groups],
             }
 

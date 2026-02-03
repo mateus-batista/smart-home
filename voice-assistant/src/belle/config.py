@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     port: int = 3002
     debug: bool = False
 
+    # Logging settings
+    log_level: str = "INFO"
+    log_json: bool = False  # Set to True for structured JSON logging
+
     # Smart Home API
     smart_home_api_url: str = "http://localhost:3001/api"
 

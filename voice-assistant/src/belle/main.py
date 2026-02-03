@@ -19,18 +19,20 @@ from belle.config import settings
 from belle.http import close_client
 from belle.llm import chat_async
 from belle.llm import preload_model as preload_llm
+from belle.logging_config import setup_logging, get_logger, set_request_id, clear_request_id
 from belle.stt import preload_model as preload_stt
 from belle.stt import transcribe_audio_async
 from belle.tools import get_all_devices
 from belle.tts import is_tts_available, synthesize_speech_to_wav_async
 from belle.tts import preload_model as preload_tts
+from belle.conversation import get_conversation_manager
 
-# Configure logging
-logging.basicConfig(
-    level=logging.DEBUG if settings.debug else logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+# Configure logging with optional JSON output
+setup_logging(
+    level="DEBUG" if settings.debug else settings.log_level,
+    json_output=settings.log_json,
 )
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @asynccontextmanager
@@ -95,6 +97,7 @@ class ChatRequest(BaseModel):
 
     message: str
     include_audio: bool = False  # Whether to include TTS audio in response
+    session_id: str | None = None  # Optional session ID for multi-turn conversations
 
 
 class ChatResponse(BaseModel):
@@ -103,6 +106,7 @@ class ChatResponse(BaseModel):
     response: str
     audio: str | None = None  # Base64-encoded audio if TTS enabled
     actions: list[dict[str, Any]] = []  # Actions taken
+    session_id: str | None = None  # Session ID if using multi-turn
 
 
 class VoiceRequest(BaseModel):
@@ -111,6 +115,7 @@ class VoiceRequest(BaseModel):
     audio: str  # Base64-encoded audio
     format: str = "wav"
     language: str | None = None
+    session_id: str | None = None  # Optional session ID for multi-turn conversations
 
 
 class VoiceResponse(BaseModel):
@@ -120,6 +125,7 @@ class VoiceResponse(BaseModel):
     response: str
     audio: str | None = None
     actions: list[dict[str, Any]] = []
+    session_id: str | None = None  # Session ID if using multi-turn
 
 
 # Health check endpoint
@@ -148,6 +154,8 @@ async def list_devices():
 @app.post("/transcribe", response_model=TranscribeResponse)
 async def transcribe(request: TranscribeRequest):
     """Transcribe audio to text."""
+    request_id = set_request_id()
+    logger.info(f"[{request_id}] Transcribe request received")
     try:
         # Decode base64 audio
         audio_bytes = base64.b64decode(request.audio)
@@ -158,21 +166,41 @@ async def transcribe(request: TranscribeRequest):
         # Transcribe
         result = await transcribe_audio_async(audio_array, request.language)
 
+        logger.info(f"[{request_id}] Transcription complete: {result['text'][:50]}...")
         return TranscribeResponse(
             text=result["text"],
             language=result["language"],
         )
     except Exception as e:
-        logger.error(f"Transcription error: {e}")
+        logger.error(f"[{request_id}] Transcription error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        clear_request_id()
 
 
 # Chat endpoint (text only)
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     """Chat with Belle using text."""
+    request_id = set_request_id()
+    logger.info(f"[{request_id}] Chat request: {request.message[:50]}...")
     try:
-        result = await chat_async(request.message)
+        # Get conversation history if session_id provided
+        conversation_history = None
+        if request.session_id:
+            conversation_manager = get_conversation_manager()
+            conversation_history = conversation_manager.get_history(request.session_id)
+            logger.info(f"[{request_id}] Using session {request.session_id} with {len(conversation_history)} history messages")
+
+        result = await chat_async(request.message, conversation_history)
+
+        # Store exchange in session history
+        if request.session_id:
+            conversation_manager.add_exchange(
+                request.session_id,
+                request.message,
+                result["response"],
+            )
 
         audio_b64 = None
         if request.include_audio and settings.tts_enabled:
@@ -180,49 +208,75 @@ async def chat_endpoint(request: ChatRequest):
             if audio_bytes:
                 audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
 
+        logger.info(f"[{request_id}] Chat response: {result['response'][:50]}...")
         return ChatResponse(
             response=result["response"],
             audio=audio_b64,
             actions=result.get("actions", []),
+            session_id=request.session_id,
         )
     except Exception as e:
-        logger.error(f"Chat error: {e}")
+        logger.error(f"[{request_id}] Chat error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        clear_request_id()
 
 
 # Full voice interaction endpoint
 @app.post("/voice", response_model=VoiceResponse)
 async def voice_endpoint(request: VoiceRequest):
     """Full voice interaction: STT -> LLM -> TTS."""
+    request_id = set_request_id()
+    logger.info(f"[{request_id}] Voice request received")
     try:
         # Decode and transcribe audio
         audio_bytes = base64.b64decode(request.audio)
         audio_array = _decode_audio(audio_bytes, request.format)
         transcription = await transcribe_audio_async(audio_array, request.language)
 
-        logger.info(f"Transcribed: {transcription['text']}")
+        logger.info(f"[{request_id}] STT: {transcription['text']}")
+
+        # Get conversation history if session_id provided
+        conversation_history = None
+        if request.session_id:
+            conversation_manager = get_conversation_manager()
+            conversation_history = conversation_manager.get_history(request.session_id)
+            logger.info(f"[{request_id}] Using session {request.session_id} with {len(conversation_history)} history messages")
 
         # Chat with LLM
-        chat_result = await chat_async(transcription["text"])
+        chat_result = await chat_async(transcription["text"], conversation_history)
 
-        logger.info(f"Response: {chat_result['response']}")
+        # Store exchange in session history
+        if request.session_id:
+            conversation_manager.add_exchange(
+                request.session_id,
+                transcription["text"],
+                chat_result["response"],
+            )
+
+        logger.info(f"[{request_id}] LLM: {chat_result['response'][:50]}...")
 
         # Generate TTS if enabled
         audio_b64 = None
         if settings.tts_enabled:
+            logger.info(f"[{request_id}] Generating TTS...")
             audio_bytes = await synthesize_speech_to_wav_async(chat_result["response"])
             if audio_bytes:
                 audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
 
+        logger.info(f"[{request_id}] Voice pipeline complete")
         return VoiceResponse(
             transcript=transcription["text"],
             response=chat_result["response"],
             audio=audio_b64,
             actions=chat_result.get("actions", []),
+            session_id=request.session_id,
         )
     except Exception as e:
-        logger.error(f"Voice interaction error: {e}")
+        logger.error(f"[{request_id}] Voice interaction error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        clear_request_id()
 
 
 # WebSocket endpoint for real-time interaction
@@ -236,9 +290,17 @@ async def websocket_endpoint(websocket: WebSocket):
     - Server sends: {"type": "response", "transcript": "...", "response": "...", "audio": "<base64>", "actions": [...]}
     - Server sends: {"type": "error", "message": "..."}
     - Client sends: {"type": "text", "message": "..."} for text-only chat
+    - Client sends: {"type": "clear_history"} to clear conversation history
+
+    Multi-turn conversations are enabled by default for WebSocket connections.
+    Each WebSocket connection maintains its own conversation history.
     """
     await websocket.accept()
-    logger.info("WebSocket client connected")
+
+    # Generate unique session ID for this WebSocket connection
+    session_id = f"ws-{id(websocket)}"
+    conversation_manager = get_conversation_manager()
+    logger.info(f"WebSocket client connected (session: {session_id})")
 
     try:
         while True:
@@ -247,6 +309,15 @@ async def websocket_endpoint(websocket: WebSocket):
             message = json.loads(data)
 
             msg_type = message.get("type")
+
+            if msg_type == "clear_history":
+                # Clear conversation history
+                conversation_manager.clear_session(session_id)
+                await websocket.send_json({
+                    "type": "history_cleared",
+                    "message": "Conversation history cleared",
+                })
+                continue
 
             if msg_type == "audio":
                 # Voice interaction
@@ -260,7 +331,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
                     # Transcribe
                     transcription = await transcribe_audio_async(audio_array, language)
-                    logger.info(f"WS Transcribed: {transcription['text']}")
+                    logger.info(f"WS [{session_id}] STT: {transcription['text']}")
 
                     # Send transcription immediately
                     await websocket.send_json({
@@ -269,9 +340,17 @@ async def websocket_endpoint(websocket: WebSocket):
                         "language": transcription["language"],
                     })
 
-                    # Process with LLM
-                    chat_result = await chat_async(transcription["text"])
-                    logger.info(f"WS Response: {chat_result['response']}")
+                    # Get conversation history and process with LLM
+                    conversation_history = conversation_manager.get_history(session_id)
+                    chat_result = await chat_async(transcription["text"], conversation_history)
+                    logger.info(f"WS [{session_id}] LLM: {chat_result['response'][:50]}...")
+
+                    # Store exchange in history
+                    conversation_manager.add_exchange(
+                        session_id,
+                        transcription["text"],
+                        chat_result["response"],
+                    )
 
                     # Generate TTS
                     audio_b64 = None
@@ -302,7 +381,19 @@ async def websocket_endpoint(websocket: WebSocket):
                     text = message.get("message", "")
                     include_audio = message.get("include_audio", False)
 
-                    chat_result = await chat_async(text)
+                    logger.info(f"WS [{session_id}] Text: {text[:50]}...")
+
+                    # Get conversation history and process with LLM
+                    conversation_history = conversation_manager.get_history(session_id)
+                    chat_result = await chat_async(text, conversation_history)
+                    logger.info(f"WS [{session_id}] LLM: {chat_result['response'][:50]}...")
+
+                    # Store exchange in history
+                    conversation_manager.add_exchange(
+                        session_id,
+                        text,
+                        chat_result["response"],
+                    )
 
                     audio_b64 = None
                     if include_audio and settings.tts_enabled:
@@ -319,7 +410,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     })
 
                 except Exception as e:
-                    logger.error(f"WS text processing error: {e}")
+                    logger.error(f"WS [{session_id}] text processing error: {e}")
                     await websocket.send_json({
                         "type": "error",
                         "message": str(e),
@@ -335,22 +426,74 @@ async def websocket_endpoint(websocket: WebSocket):
                 })
 
     except WebSocketDisconnect:
-        logger.info("WebSocket client disconnected")
+        logger.info(f"WebSocket client disconnected (session: {session_id})")
+        # Clean up conversation history for this session
+        conversation_manager.remove_session(session_id)
     except Exception as e:
-        logger.error(f"WebSocket error: {e}")
+        logger.error(f"WebSocket error (session: {session_id}): {e}")
+        # Clean up on error too
+        conversation_manager.remove_session(session_id)
 
 
-def _decode_audio(audio_bytes: bytes, format: str) -> np.ndarray:
+def _detect_audio_format(audio_bytes: bytes) -> str | None:
+    """
+    Detect audio format from magic bytes.
+
+    Returns:
+        Detected format string or None if unknown
+    """
+    if len(audio_bytes) < 12:
+        return None
+
+    # WAV: "RIFF" + size + "WAVE"
+    if audio_bytes[:4] == b"RIFF" and audio_bytes[8:12] == b"WAVE":
+        return "wav"
+
+    # OGG (including WebM audio): "OggS"
+    if audio_bytes[:4] == b"OggS":
+        return "ogg"
+
+    # WebM/Matroska: 0x1A 0x45 0xDF 0xA3
+    if audio_bytes[:4] == b"\x1a\x45\xdf\xa3":
+        return "webm"
+
+    # MP3: Frame sync (0xFF 0xFB, 0xFF 0xFA, 0xFF 0xF3, 0xFF 0xF2) or ID3 tag
+    if audio_bytes[:3] == b"ID3" or (audio_bytes[0] == 0xFF and (audio_bytes[1] & 0xE0) == 0xE0):
+        return "mp3"
+
+    # M4A/AAC: "ftyp" at offset 4
+    if len(audio_bytes) >= 8 and audio_bytes[4:8] == b"ftyp":
+        return "m4a"
+
+    # FLAC: "fLaC"
+    if audio_bytes[:4] == b"fLaC":
+        return "flac"
+
+    return None
+
+
+def _decode_audio(audio_bytes: bytes, format: str | None = None) -> np.ndarray:
     """
     Decode audio bytes to numpy array.
 
     Args:
         audio_bytes: Raw audio bytes
-        format: Audio format (wav, webm, etc.)
+        format: Audio format (wav, webm, etc.) or None for auto-detection
 
     Returns:
         Audio as numpy array (float32, mono, resampled to 16kHz)
     """
+    # Auto-detect format if not specified or set to "auto"
+    if not format or format.lower() == "auto":
+        detected = _detect_audio_format(audio_bytes)
+        if detected:
+            logger.debug(f"Auto-detected audio format: {detected}")
+            format = detected
+        else:
+            # Fall back to assuming raw PCM
+            logger.warning("Could not detect audio format, assuming raw PCM")
+            format = "raw"
+
     if format.lower() == "wav":
         # Parse WAV file
         with wave.open(io.BytesIO(audio_bytes), "rb") as wav:

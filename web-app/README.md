@@ -1,73 +1,137 @@
-# React + TypeScript + Vite
+# Smart Home Web App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React-based dashboard for smart home control with voice assistant integration.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Device Control**: Turn lights on/off, adjust brightness, change colors
+- **Room View**: See and control all devices in a room at once
+- **Device Groups**: Control custom groups with one tap
+- **Voice Assistant**: Talk to Belle for hands-free control
+- **Responsive Design**: Works on desktop and mobile
+- **Real-time Updates**: Device states refresh automatically
 
-## React Compiler
+## Requirements
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Node.js 18+
+- Smart Home Server running on `localhost:3001`
+- (Optional) Voice Assistant running on `localhost:3002`
 
-## Expanding the ESLint configuration
+## Installation
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+```bash
+# Install dependencies
+npm install
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# Start development server
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Open http://localhost:5173 in your browser.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Configuration
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+The app connects to the backend API at `http://localhost:3001/api` by default.
+
+To change the API URL, update `src/services/api.ts`:
+
+```typescript
+const API_BASE = 'http://your-server:3001/api';
 ```
+
+## Usage
+
+```bash
+# Development (with hot reload)
+npm run dev
+
+# Production build
+npm run build
+
+# Preview production build
+npm run preview
+
+# Lint code
+npm run lint
+```
+
+## Project Structure
+
+```
+web-app/
+├── src/
+│   ├── App.tsx              # Main application component
+│   ├── main.tsx             # React entry point
+│   ├── index.css            # Global styles (Tailwind)
+│   ├── components/          # React components
+│   │   ├── DeviceCard.tsx   # Individual device control
+│   │   ├── RoomView.tsx     # Room with all devices
+│   │   ├── GroupCard.tsx    # Device group control
+│   │   ├── LightControl.tsx # Brightness/color controls
+│   │   └── ...
+│   ├── hooks/               # Custom React hooks
+│   │   ├── useDevices.ts    # Device state management
+│   │   ├── useRooms.ts      # Room data fetching
+│   │   ├── useGroups.ts     # Group management
+│   │   └── useVoiceAssistant.ts  # Voice control
+│   ├── services/
+│   │   └── api.ts           # Backend API client
+│   ├── types/               # TypeScript interfaces
+│   └── utils/               # Helper functions
+├── public/                  # Static assets
+└── package.json
+```
+
+## Voice Assistant Integration
+
+The app includes a voice assistant button that connects to the Belle voice assistant:
+
+1. Click the microphone button
+2. Speak your command (e.g., "Turn on the kitchen lights")
+3. Belle responds with confirmation
+
+Voice commands support both English and Portuguese.
+
+### WebSocket Connection
+
+The voice assistant uses WebSocket for real-time communication:
+
+```typescript
+// From useVoiceAssistant hook
+const ws = new WebSocket('ws://localhost:3002/ws');
+
+// Send audio
+ws.send(JSON.stringify({
+  type: 'audio',
+  data: base64Audio,
+  format: 'wav'
+}));
+
+// Receive response
+ws.onmessage = (event) => {
+  const { transcript, response, actions } = JSON.parse(event.data);
+  // Update UI based on response
+};
+```
+
+## Styling
+
+The app uses Tailwind CSS v4 for styling. Global styles are in `src/index.css`.
+
+### Color Scheme
+
+- Dark theme optimized for low-light use
+- Accent colors indicate device states (on/off)
+- Smooth animations for state transitions
+
+## Tech Stack
+
+- **React 19** - UI framework
+- **TypeScript** - Type safety
+- **Vite** - Build tool and dev server
+- **Tailwind CSS 4** - Styling
+- **ESLint** - Code linting
+
+## License
+
+MIT

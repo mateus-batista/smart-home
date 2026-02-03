@@ -9,6 +9,7 @@ from pydantic import BaseModel, ValidationError
 
 from belle.config import settings
 from belle.context import get_smart_home_context_json, clear_context_cache
+from belle.http import get_tool_deduplicator
 from belle.personality import SYSTEM_PROMPT, TOOL_INSTRUCTIONS
 from belle.tools import ALL_TOOLS
 from belle.tools.devices import DEVICE_TOOL_FUNCTIONS
@@ -292,8 +293,21 @@ After tool execution, provide a brief confirmation."""
     final_response = response_text
 
     if tool_calls:
-        # Execute each tool call
+        # Execute each tool call (with deduplication)
+        deduplicator = get_tool_deduplicator()
         for tool_call in tool_calls:
+            # Create deduplication key from tool name and arguments
+            dedup_key = deduplicator.make_key(tool_call.name, **tool_call.arguments)
+
+            if deduplicator.is_duplicate(dedup_key):
+                logger.info(f"Skipping duplicate tool call: {tool_call.name}")
+                tool_results.append({
+                    "tool": tool_call.name,
+                    "arguments": tool_call.arguments,
+                    "result": {"success": True, "skipped": True, "reason": "duplicate request"},
+                })
+                continue
+
             logger.info(f"Executing tool: {tool_call.name} with args: {tool_call.arguments}")
             result = await _execute_tool(tool_call)
             tool_results.append({
