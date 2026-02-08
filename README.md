@@ -1,19 +1,27 @@
 # Smart Home Control
 
-A simple web app to control your Philips Hue and Nanoleaf smart devices from your local network.
+A full-stack IoT smart home control system with multi-device integration, voice assistant, and local-first architecture.
 
 ## Features
 
-- Control Philips Hue lights (on/off, brightness, color)
+- Control Philips Hue lights (on/off, brightness, color, color temperature)
 - Control Nanoleaf panels (on/off, brightness, color, effects)
+- Control SwitchBot devices (lights, shades, curtains, blinds, plugs)
+- Voice assistant (Belle) with speech-to-text and LLM-powered commands
+  - Local inference via MLX (Whisper STT, Qwen LLM)
+  - Cloud LLM providers (OpenAI, Anthropic) as optional alternatives
+- Room and device group management
 - Responsive design works on desktop and mobile
-- Local network only - no cloud dependency
+- Local-first — no cloud dependency for core device control
 
 ## Prerequisites
 
 - Node.js 18+
+- PostgreSQL (via Docker Compose)
+- Python 3.12+ and [uv](https://docs.astral.sh/uv/) (for voice assistant)
 - Philips Hue Bridge (for Hue devices)
 - Nanoleaf panels connected to your local network
+- SwitchBot Hub (for SwitchBot devices)
 
 ## Getting Started
 
@@ -81,6 +89,21 @@ The web app will start on http://localhost:5173
 - `GET /api/nanoleaf/:id/effects` - Get available effects
 - `PUT /api/nanoleaf/:id/effects` - Set effect
 
+### SwitchBot
+
+- `GET /api/switchbot/devices` - Get all devices
+- `GET /api/switchbot/devices/:id` - Get device status
+- `PUT /api/switchbot/devices/:id` - Update device state
+- `POST /api/switchbot/devices/:id/command` - Send device command
+
+### Voice Assistant
+
+- `GET /health` - Health check
+- `POST /transcribe` - Speech-to-text
+- `POST /chat` - Text chat with Belle
+- `POST /voice` - Full voice pipeline (STT → LLM → TTS)
+- `WS /ws` - WebSocket for real-time voice interaction
+
 ## Device State Format
 
 All device states use a normalized format:
@@ -106,18 +129,26 @@ All device states use a normalized format:
 
 ```
 smart-home/
-├── web-app/           # React + Vite + Tailwind frontend
+├── web-app/              # React + Vite + Tailwind frontend
 │   └── src/
-│       ├── components/  # UI components
-│       ├── hooks/       # React hooks
-│       ├── services/    # API client
-│       └── types/       # TypeScript types
-└── server/            # Express backend
-    └── src/
-        ├── routes/      # API routes
-        ├── services/    # Device integrations
-        ├── types/       # TypeScript types
-        └── utils/       # Utilities
+│       ├── components/     # UI components
+│       ├── hooks/          # React hooks
+│       ├── services/       # API client
+│       └── utils/          # Utilities
+├── server/               # Express + Prisma backend
+│   └── src/
+│       ├── routes/         # API routes
+│       ├── services/       # Device integrations (Hue, Nanoleaf, SwitchBot)
+│       ├── prisma/         # Database schema
+│       ├── types/          # TypeScript types
+│       └── utils/          # Utilities
+└── voice-assistant/      # Python FastAPI voice assistant
+    └── src/belle/
+        ├── main.py         # FastAPI entry point
+        ├── stt.py          # Whisper speech-to-text
+        ├── llm/            # LLM providers (local, OpenAI, Anthropic)
+        ├── tools/          # Device/room/group control functions
+        └── tts.py          # Text-to-speech (optional)
 ```
 
 ## Troubleshooting
@@ -137,6 +168,12 @@ Make sure the server is running on port 3001. Check the terminal for any error m
 1. Make sure you've put the device in pairing mode (hold power button 5-7 seconds)
 2. Verify the IP address is correct
 3. Check that the device is on the same network
+
+### SwitchBot not responding
+
+1. Verify your `SWITCHBOT_TOKEN` and `SWITCHBOT_SECRET` are set in the server `.env`
+2. Ensure the SwitchBot Hub is online and connected to the internet
+3. Check that devices are linked to the hub in the SwitchBot app
 
 ### CORS errors
 
