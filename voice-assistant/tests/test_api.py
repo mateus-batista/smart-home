@@ -233,7 +233,7 @@ class TestVoiceEndpoint:
             patch("belle.main.settings") as mock_settings,
         ):
             mock_settings.tts_enabled = False
-            mock_stt.return_value = {"text": "turn off the bedroom light", "language": "en"}
+            mock_stt.return_value = {"text": "turn off the bedroom light", "language": "en", "confidence": {"no_speech_prob": 0.0, "confidence_score": 0.9}}
             mock_chat.return_value = {
                 "response": "I've turned off the bedroom light.",
                 "actions": [
@@ -264,7 +264,7 @@ class TestVoiceEndpoint:
             patch("belle.main.settings") as mock_settings,
         ):
             mock_settings.tts_enabled = False
-            mock_stt.return_value = {"text": "set living room brightness to 50", "language": "en"}
+            mock_stt.return_value = {"text": "set living room brightness to 50", "language": "en", "confidence": {"no_speech_prob": 0.0, "confidence_score": 0.9}}
             mock_chat.return_value = {
                 "response": "I've set the living room brightness to 50%.",
                 "actions": [
@@ -307,7 +307,7 @@ class TestWebSocket:
             patch("belle.main.settings") as mock_settings,
         ):
             mock_settings.tts_enabled = False
-            mock_stt.return_value = {"text": "turn on lights", "language": "en"}
+            mock_stt.return_value = {"text": "turn on lights", "language": "en", "confidence": {"no_speech_prob": 0.0, "confidence_score": 0.9}}
             mock_chat.return_value = {"response": "Done!", "actions": []}
 
             with client.websocket_connect("/ws") as websocket:

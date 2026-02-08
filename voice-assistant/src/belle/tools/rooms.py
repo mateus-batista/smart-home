@@ -271,7 +271,7 @@ def _get_shade_state_update(device: dict, action: str, position: int | None) -> 
     """
     is_blind_tilt = _is_blind_tilt(device)
     state_update: dict[str, Any] = {}
-    
+
     if action == "open":
         state_update["on"] = True
         if is_blind_tilt:
@@ -289,7 +289,7 @@ def _get_shade_state_update(device: dict, action: str, position: int | None) -> 
         else:
             state_update["brightness"] = position
         state_update["on"] = position > 0
-    
+
     return state_update
 
 
@@ -326,7 +326,7 @@ async def control_room_shades(
 
         # Filter to shade devices only
         shade_devices = [d for d in devices if _is_shade_device(d)]
-        
+
         if not shade_devices:
             return {
                 "success": False,
@@ -347,7 +347,7 @@ async def control_room_shades(
             device_id = device.get("externalId") or device.get("id")
             device_name = device.get("name")
             state_update = _get_shade_state_update(device, action, position)
-            
+
             try:
                 logger.info(f"  Sending to shade '{device_name}' (id={device_id}): {state_update}")
                 response = await client.put(f"/devices/{device_id}", json=state_update)
@@ -365,7 +365,7 @@ async def control_room_shades(
         _room_cache.clear()
 
         success_count = sum(1 for r in results if r["success"])
-        
+
         # Build action description
         if action == "open":
             action_desc = "opened"

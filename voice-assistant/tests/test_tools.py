@@ -5,11 +5,11 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from belle.tools.devices import (
+    _get_blind_tilt_position_for_openness,
+    _is_blind_tilt,
     control_device,
     control_shade,
     get_device_status,
-    _is_blind_tilt,
-    _get_blind_tilt_position_for_openness,
 )
 
 

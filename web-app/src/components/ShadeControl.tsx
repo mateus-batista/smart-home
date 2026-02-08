@@ -23,7 +23,7 @@ export function ShadeControl({ device, onUpdate, onClose, onToggleHidden }: Shad
   // For Blind Tilt: 50 = fully open (horizontal slats)
   const [localPosition, setLocalPosition] = useState(device.state.brightness);
   const isTilt = isBlindTilt(device);
-  const visualOpenness = getVisualOpenness(localPosition, isTilt);
+  const visualOpenness = getVisualOpenness(localPosition);
 
   const handlePositionChange = (position: number) => {
     setLocalPosition(position);
@@ -103,7 +103,7 @@ export function ShadeControl({ device, onUpdate, onClose, onToggleHidden }: Shad
                 className={`p-3 rounded-xl text-center transition-all ${
                   localPosition === value
                     ? 'bg-blue-500/30 border-blue-500 border'
-                    : 'bg-zinc-800 border-zinc-700 border hover:bg-zinc-700'
+                    : 'glass-pill hover:bg-white/10'
                 } ${!device.reachable ? 'opacity-50' : ''}`}
               >
                 <span className="text-xl">{icon}</span>
@@ -137,14 +137,14 @@ export function ShadeControl({ device, onUpdate, onClose, onToggleHidden }: Shad
         />
 
         {/* Device info */}
-        <div className="pt-4 border-t border-zinc-800">
+        <div className="pt-4 border-t border-white/[0.06]">
           <div className="flex justify-between text-sm">
             <span className="text-zinc-500">Type</span>
             <span className="text-zinc-300">{device.deviceType || 'Smart Shade'}</span>
           </div>
           <div className="flex justify-between text-sm mt-2">
             <span className="text-zinc-500">Status</span>
-            <span className={device.reachable ? 'text-green-400' : 'text-red-400'}>
+            <span className={device.reachable ? 'text-amber-400' : 'text-red-400'}>
               {device.reachable ? 'Online' : 'Offline'}
             </span>
           </div>
@@ -158,13 +158,13 @@ export function ShadeControl({ device, onUpdate, onClose, onToggleHidden }: Shad
 
         {/* Hide device option */}
         {onToggleHidden && (
-          <div className="pt-4 border-t border-zinc-800">
+          <div className="pt-4 border-t border-white/[0.06]">
             <button
               onClick={handleToggleHidden}
               className={`w-full py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all ${
                 device.hidden
                   ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
-                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-300'
+                  : 'glass-pill text-zinc-400 hover:bg-white/10 hover:text-zinc-300'
               }`}
             >
               {device.hidden ? (

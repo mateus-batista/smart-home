@@ -1,20 +1,20 @@
 """Tests for HTTP client and utilities."""
 
-import pytest
 import httpx
+import pytest
 
 from belle.http import (
     Cache,
-    SmartCache,
-    find_by_name,
-    is_retryable_error,
-    calculate_backoff,
-    with_retry,
-    get_close_matches_for_name,
-    RequestDeduplicator,
     CircuitBreaker,
     CircuitBreakerOpen,
     CircuitState,
+    RequestDeduplicator,
+    SmartCache,
+    calculate_backoff,
+    find_by_name,
+    get_close_matches_for_name,
+    is_retryable_error,
+    with_retry,
 )
 
 

@@ -112,6 +112,286 @@ input[type="range"]::-moz-range-thumb {
   transition-duration: 200ms;
 }
 
+/* Liquid Glass Design System */
+.glass-card {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.03) 50%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top-color: rgba(255, 255, 255, 0.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.1),
+    0 4px 24px rgba(0, 0, 0, 0.15);
+}
+.glass-surface {
+  background: linear-gradient(
+    160deg,
+    rgba(30, 30, 35, 0.78) 0%,
+    rgba(20, 20, 24, 0.72) 50%,
+    rgba(28, 28, 32, 0.78) 100%
+  );
+  backdrop-filter: blur(40px) saturate(1.6);
+  -webkit-backdrop-filter: blur(40px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top-color: rgba(255, 255, 255, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.12),
+    0 8px 40px rgba(0, 0, 0, 0.25);
+}
+.glass-button {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  backdrop-filter: blur(12px) saturate(1.3);
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top-color: rgba(255, 255, 255, 0.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+.glass-button:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.08) 100%
+  );
+  border-color: rgba(255, 255, 255, 0.2);
+  border-top-color: rgba(255, 255, 255, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 4px 16px rgba(0, 0, 0, 0.15);
+}
+/* Pill-shaped small glass element */
+.glass-pill {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  backdrop-filter: blur(16px) saturate(1.3);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top-color: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 12px rgba(0, 0, 0, 0.12);
+}
+
+/* Enchanted Rose — single continuous breathe, state changes via transitions */
+@keyframes rose-breathe {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(var(--breathe-intensity, 1.03));
+  }
+}
+/* Sparkle orbit animations */
+@keyframes sparkle-orbit {
+  from {
+    transform: rotate(var(--orbit-start, 0deg)) translateX(var(--orbit-radius, 60px));
+  }
+  to {
+    transform: rotate(calc(var(--orbit-start, 0deg) + 360deg)) translateX(var(--orbit-radius, 60px));
+  }
+}
+/* Falling petal animation (idle state) */
+@keyframes petal-fall {
+  0% {
+    transform: translateY(0) translateX(0) rotate(0deg);
+    opacity: 0.8;
+  }
+  25% {
+    transform: translateY(25%) translateX(8px) rotate(45deg);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateY(50%) translateX(-5px) rotate(120deg);
+    opacity: 0.5;
+  }
+  75% {
+    transform: translateY(75%) translateX(10px) rotate(200deg);
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateY(100%) translateX(3px) rotate(280deg);
+    opacity: 0;
+  }
+}
+
+.animate-sparkle-orbit {
+  animation: sparkle-orbit var(--sparkle-speed, 12s) linear infinite;
+}
+.animate-petal-fall {
+  animation: petal-fall var(--petal-duration, 4s) ease-in forwards;
+  animation-delay: var(--petal-delay, 0s);
+}
+
+@keyframes waveform {
+  0%, 100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.animate-waveform {
+  animation: waveform 0.5s ease-in-out infinite;
+}
+
+/* Immersive Voice Modal */
+@keyframes immersive-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes immersive-exit {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+.animate-immersive-enter {
+  animation: immersive-enter 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+.animate-immersive-exit {
+  animation: immersive-exit 0.3s ease-out forwards;
+}
+
+/* Background mesh drift */
+@keyframes bg-mesh {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 300px 300px;
+  }
+}
+
+/* Circular waveform bars */
+@keyframes waveform-circular {
+  0%, 100% {
+    transform: scaleY(0.3);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+/* Floating conversation overlays */
+@keyframes float-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes float-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.animate-float-in-up {
+  animation: float-in-up 0.5s ease-out forwards;
+}
+.animate-float-out {
+  animation: float-out 0.4s ease-in forwards;
+}
+
+/* Particle animations */
+@keyframes particle-drift {
+  0%, 100% {
+    transform: translate(0, 0);
+    opacity: 0.6;
+  }
+  25% {
+    transform: translate(var(--drift-x, 12px), var(--drift-y, -18px));
+    opacity: 0.8;
+  }
+  50% {
+    transform: translate(var(--drift-x2, -8px), var(--drift-y2, 14px));
+    opacity: 0.5;
+  }
+  75% {
+    transform: translate(var(--drift-x3, 16px), var(--drift-y3, 8px));
+    opacity: 0.7;
+  }
+}
+@keyframes particle-orbit {
+  from {
+    transform: rotate(var(--orbit-start, 0deg)) translateX(var(--orbit-radius, 80px)) rotate(calc(-1 * var(--orbit-start, 0deg)));
+  }
+  to {
+    transform: rotate(calc(var(--orbit-start, 0deg) + 360deg)) translateX(var(--orbit-radius, 80px)) rotate(calc(-1 * (var(--orbit-start, 0deg) + 360deg)));
+  }
+}
+@keyframes particle-spiral {
+  0% {
+    transform: rotate(0deg) translateX(var(--spiral-radius, 100px));
+    opacity: 0.8;
+  }
+  100% {
+    transform: rotate(720deg) translateX(10px);
+    opacity: 0;
+  }
+}
+@keyframes particle-burst {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(var(--burst-x, 60px), var(--burst-y, -40px)) scale(0.3);
+    opacity: 0;
+  }
+}
+.animate-particle-drift {
+  animation: particle-drift var(--particle-duration, 10s) ease-in-out infinite;
+  animation-delay: var(--particle-delay, 0s);
+}
+.animate-particle-orbit {
+  animation: particle-orbit var(--particle-duration, 5s) linear infinite;
+  animation-delay: var(--particle-delay, 0s);
+}
+.animate-particle-spiral {
+  animation: particle-spiral 3s ease-in forwards;
+  animation-delay: var(--particle-delay, 0s);
+}
+.animate-particle-burst {
+  animation: particle-burst 1.2s ease-out forwards;
+  animation-delay: var(--particle-delay, 0s);
+}
+
 /* Hide scrollbar utility */
 .scrollbar-hide {
   -ms-overflow-style: none;

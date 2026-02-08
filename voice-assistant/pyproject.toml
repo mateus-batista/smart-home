@@ -32,6 +32,10 @@ tts = [
     "torch>=2.0",
     "torchaudio>=2.0",
 ]
+cloud = [
+    "openai>=1.0",
+    "anthropic>=0.39",
+]
 wake = [
     "pvporcupine>=3.0",
 ]

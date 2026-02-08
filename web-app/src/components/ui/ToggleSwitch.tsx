@@ -36,7 +36,7 @@ function ToggleSwitchComponent({
     <div 
       className={`
         flex rounded-full p-1 shrink-0
-        ${disabled ? 'opacity-50 bg-zinc-800' : 'bg-zinc-800'}
+        ${disabled ? 'opacity-50' : ''} glass-button
         ${className}
       `}
       onClick={(e) => e.stopPropagation()}
@@ -51,11 +51,11 @@ function ToggleSwitchComponent({
           ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}
           ${on 
             ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30' 
-            : 'text-zinc-400 hover:text-white hover:bg-zinc-700'
+            : 'text-zinc-400 hover:text-white hover:bg-white/10'
           }
         `}
       >
-        {loading && on ? (
+        {loading && !on ? (
           <LoadingSpinner size="xs" color="white" />
         ) : (
           <svg className={isSmall ? 'w-4 h-4' : 'w-5 h-5'} viewBox="0 0 24 24" fill="currentColor">
@@ -74,13 +74,13 @@ function ToggleSwitchComponent({
           ${isSmall ? 'px-3 py-1.5' : 'px-4 py-2'}
           rounded-full font-medium transition-all flex items-center justify-center
           ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}
-          ${!on 
-            ? 'bg-zinc-600 text-white shadow-lg shadow-zinc-600/30' 
-            : 'text-zinc-400 hover:text-white hover:bg-zinc-700'
+          ${!on
+            ? 'bg-zinc-600 text-white shadow-lg shadow-zinc-600/30'
+            : 'text-zinc-400 hover:text-white hover:bg-white/10'
           }
         `}
       >
-        {loading && !on ? (
+        {loading && on ? (
           <LoadingSpinner size="xs" color="white" />
         ) : (
           <svg className={isSmall ? 'w-4 h-4' : 'w-5 h-5'} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

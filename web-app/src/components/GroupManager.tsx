@@ -218,10 +218,10 @@ export function GroupManager({
   const displayGroupBrightness = pendingGroupBrightness ?? groupState.brightness;
 
   return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-end sm:items-center justify-center sm:p-4">
-      <div className="bg-zinc-900 w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-2xl sm:rounded-3xl rounded-t-3xl overflow-hidden flex flex-col shadow-2xl border-t sm:border border-zinc-800">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4">
+      <div className="glass-surface w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-2xl sm:rounded-3xl rounded-t-3xl overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-zinc-800 flex items-center justify-between shrink-0">
+        <div className="p-4 sm:p-5 border-b border-white/[0.06] flex items-center justify-between shrink-0">
           <div className="min-w-0 flex items-center gap-3">
             {/* Show back arrow only when navigating from list (not opened directly) */}
             {viewMode === 'edit' && !initialGroupId && (
@@ -232,7 +232,7 @@ export function GroupManager({
                   setEditingName(null);
                   setEditTab('controls');
                 }}
-                className="p-1.5 -ml-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+                className="p-1.5 -ml-1.5 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
@@ -302,10 +302,10 @@ export function GroupManager({
               {/* Create button */}
               <button
                 onClick={() => setViewMode('create')}
-                className="w-full mb-4 py-3 px-4 bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 hover:border-green-500/50 rounded-xl transition-all flex items-center justify-center gap-2"
+                className="w-full mb-4 py-3 px-4 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-500/50 rounded-xl transition-all flex items-center justify-center gap-2"
               >
-                <Plus className="w-5 h-5 text-green-400" />
-                <span className="font-medium text-green-400">New Group</span>
+                <Plus className="w-5 h-5 text-amber-400" />
+                <span className="font-medium text-amber-400">New Group</span>
               </button>
 
               {/* Groups list */}
@@ -339,7 +339,7 @@ export function GroupManager({
                             isShadeGroupForList
                               ? 'bg-blue-500/20'
                               : groupTypeForList === 'empty'
-                              ? 'bg-purple-500/20'
+                              ? 'bg-rose-500/20'
                               : 'bg-amber-500/20'
                           }`}>
                             {isShadeGroupForList ? (
@@ -350,7 +350,7 @@ export function GroupManager({
                                 <line x1="5" y1="16" x2="19" y2="16" />
                               </svg>
                             ) : groupTypeForList === 'empty' ? (
-                              <Layers className="w-4 h-4 text-purple-400" />
+                              <Layers className="w-4 h-4 text-rose-400" />
                             ) : (
                               <Sun className="w-4 h-4 text-amber-400" />
                             )}
@@ -404,7 +404,7 @@ export function GroupManager({
                     onChange={(e) => setNewGroupName(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleCreateGroup()}
                     placeholder="e.g., Kitchen Lights"
-                    className="w-full py-2.5 px-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white placeholder-zinc-500 outline-none focus:border-green-500 transition-all"
+                    className="w-full py-2.5 px-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white placeholder-zinc-500 outline-none focus:border-amber-500 transition-all"
                     autoFocus
                   />
                 </div>
@@ -415,7 +415,7 @@ export function GroupManager({
                   <select
                     value={newGroupRoomId ?? ''}
                     onChange={(e) => setNewGroupRoomId(e.target.value || null)}
-                    className="w-full py-2.5 px-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white outline-none focus:border-green-500 transition-all appearance-none cursor-pointer"
+                    className="w-full py-2.5 px-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white outline-none focus:border-amber-500 transition-all appearance-none cursor-pointer"
                   >
                     <option value="">No room</option>
                     {rooms.map((room) => (
@@ -430,7 +430,7 @@ export function GroupManager({
                 <button
                   onClick={handleCreateGroup}
                   disabled={isLoading || !newGroupName.trim()}
-                  className="w-full py-3 bg-green-500 hover:bg-green-400 disabled:bg-zinc-700 disabled:cursor-not-allowed rounded-xl font-medium text-white transition-all"
+                  className="w-full py-3 bg-amber-500 hover:bg-amber-400 disabled:bg-zinc-700 disabled:cursor-not-allowed rounded-xl font-medium text-white transition-all"
                 >
                   {isLoading ? (
                     <div className="flex items-center justify-center gap-2">
@@ -450,7 +450,7 @@ export function GroupManager({
             <div className="flex-1 flex flex-col overflow-hidden">
               {/* Group-level controls */}
               {groupDevices.length > 0 && (
-                <div className="px-4 sm:px-5 py-4 space-y-5 border-b border-zinc-800 shrink-0 bg-zinc-800/30">
+                <div className="px-4 sm:px-5 py-4 space-y-5 border-b border-white/[0.06] shrink-0 bg-white/[0.03]">
                   {/* Power / Open-Close control */}
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-medium">
@@ -496,7 +496,7 @@ export function GroupManager({
               )}
 
               {/* Tabs */}
-              <div className="flex border-b border-zinc-800 shrink-0">
+              <div className="flex border-b border-white/[0.06] shrink-0">
                 <button
                   onClick={() => setEditTab('controls')}
                   className={`flex-1 py-2.5 px-4 text-sm font-medium transition-colors ${
@@ -564,7 +564,7 @@ export function GroupManager({
               {editTab === 'devices' && (
                 <>
                   {/* Search */}
-                  <div className="p-3 border-b border-zinc-800 shrink-0">
+                  <div className="p-3 border-b border-white/[0.06] shrink-0">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                       <input
@@ -616,7 +616,7 @@ export function GroupManager({
                             title={isDisabled ? reason : undefined}
                             className={`w-full p-2.5 rounded-lg flex items-center justify-between transition-all ${
                               isInGroup
-                                ? 'bg-green-500/15 border border-green-500/30'
+                                ? 'bg-amber-500/15 border border-amber-500/30'
                                 : isDisabled
                                 ? 'bg-zinc-800/30 border border-transparent opacity-50 cursor-not-allowed'
                                 : 'bg-zinc-800/50 border border-transparent hover:bg-zinc-800'
@@ -644,7 +644,7 @@ export function GroupManager({
                             <div
                               className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all ${
                                 isInGroup
-                                  ? 'bg-green-500 text-white'
+                                  ? 'bg-amber-500 text-white'
                                   : isDisabled
                                   ? 'bg-zinc-800 text-zinc-600'
                                   : 'bg-zinc-700 text-zinc-500'

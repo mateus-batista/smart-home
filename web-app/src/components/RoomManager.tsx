@@ -115,10 +115,10 @@ export function RoomManager({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-end sm:items-center justify-center sm:p-4">
-      <div className="bg-zinc-900 w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-2xl sm:rounded-3xl rounded-t-3xl overflow-hidden flex flex-col shadow-2xl border-t sm:border border-zinc-800">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4">
+      <div className="glass-surface w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-2xl sm:rounded-3xl rounded-t-3xl overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-zinc-800 flex items-center justify-between shrink-0">
+        <div className="p-4 sm:p-5 border-b border-white/[0.06] flex items-center justify-between shrink-0">
           <div className="min-w-0">
             <h2 className="text-lg font-semibold text-white truncate">
               {viewMode === 'create' ? 'New Room' : viewMode === 'edit' ? selectedRoom?.name : 'Rooms'}
@@ -142,12 +142,12 @@ export function RoomManager({
               {/* Create button */}
               <button
                 onClick={() => setViewMode('create')}
-                className="w-full mb-4 py-3 px-4 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 hover:border-blue-500/50 rounded-xl transition-all flex items-center justify-center gap-2"
+                className="w-full mb-4 py-3 px-4 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-500/50 rounded-xl transition-all flex items-center justify-center gap-2"
               >
-                <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                <span className="font-medium text-blue-400">New Room</span>
+                <span className="font-medium text-amber-400">New Room</span>
               </button>
 
               {/* Rooms list */}
@@ -171,7 +171,7 @@ export function RoomManager({
                         className="p-3 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-700/50 hover:border-zinc-600 cursor-pointer transition-all group flex items-center justify-between"
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-9 h-9 rounded-lg bg-blue-500/20 flex items-center justify-center text-lg shrink-0">
+                          <div className="w-9 h-9 rounded-lg bg-amber-500/20 flex items-center justify-center text-lg shrink-0">
                             {getRoomIcon(room.name)}
                           </div>
                           <div className="min-w-0">
@@ -228,7 +228,7 @@ export function RoomManager({
                     onChange={(e) => setNewRoomName(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleCreateRoom()}
                     placeholder="e.g., Living Room"
-                    className="w-full py-2.5 px-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white placeholder-zinc-500 outline-none focus:border-blue-500 transition-all"
+                    className="w-full py-2.5 px-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white placeholder-zinc-500 outline-none focus:border-amber-500 transition-all"
                     autoFocus
                   />
                 </div>
@@ -237,7 +237,7 @@ export function RoomManager({
                 <button
                   onClick={handleCreateRoom}
                   disabled={isLoading || !newRoomName.trim()}
-                  className="w-full py-3 bg-blue-500 hover:bg-blue-400 disabled:bg-zinc-700 disabled:cursor-not-allowed rounded-xl font-medium text-white transition-all"
+                  className="w-full py-3 bg-amber-500 hover:bg-amber-400 disabled:bg-zinc-700 disabled:cursor-not-allowed rounded-xl font-medium text-white transition-all"
                 >
                   {isLoading ? (
                     <div className="flex items-center justify-center gap-2">
@@ -273,7 +273,7 @@ export function RoomManager({
               </div>
 
               {/* Room name (editable) */}
-              <div className="px-4 py-3 border-b border-zinc-800 shrink-0">
+              <div className="px-4 py-3 border-b border-white/[0.06] shrink-0">
                 {editingName !== null ? (
                   <div className="flex items-center gap-2">
                     <input
@@ -284,13 +284,13 @@ export function RoomManager({
                         if (e.key === 'Enter') handleRenameRoom();
                         if (e.key === 'Escape') setEditingName(null);
                       }}
-                      className="flex-1 py-1.5 px-3 bg-zinc-800 border border-zinc-600 rounded-lg text-white font-medium outline-none focus:border-blue-500"
+                      className="flex-1 py-1.5 px-3 bg-zinc-800 border border-zinc-600 rounded-lg text-white font-medium outline-none focus:border-amber-500"
                       autoFocus
                     />
                     <button
                       onClick={handleRenameRoom}
                       disabled={isLoading || !editingName.trim()}
-                      className="p-1.5 rounded-lg bg-blue-500 hover:bg-blue-400 disabled:bg-zinc-600 text-white transition-colors"
+                      className="p-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:bg-zinc-600 text-white transition-colors"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -320,7 +320,7 @@ export function RoomManager({
               </div>
 
               {/* Search */}
-              <div className="p-3 border-b border-zinc-800 shrink-0">
+              <div className="p-3 border-b border-white/[0.06] shrink-0">
                 <div className="relative">
                   <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -347,7 +347,7 @@ export function RoomManager({
                         onClick={() => handleToggleDevice(device.id)}
                         className={`w-full p-2.5 rounded-lg flex items-center justify-between transition-all ${
                           isInRoom
-                            ? 'bg-blue-500/15 border border-blue-500/30'
+                            ? 'bg-amber-500/15 border border-amber-500/30'
                             : 'bg-zinc-800/50 border border-transparent hover:bg-zinc-800'
                         }`}
                       >
@@ -366,7 +366,7 @@ export function RoomManager({
                         </div>
                         <div
                           className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all ${
-                            isInRoom ? 'bg-blue-500 text-white' : 'bg-zinc-700 text-zinc-500'
+                            isInRoom ? 'bg-amber-500 text-white' : 'bg-zinc-700 text-zinc-500'
                           }`}
                         >
                           {isInRoom && (
@@ -385,7 +385,7 @@ export function RoomManager({
               </div>
 
               {/* Delete room button */}
-              <div className="p-3 border-t border-zinc-800 shrink-0">
+              <div className="p-3 border-t border-white/[0.06] shrink-0">
                 <button
                   onClick={() => handleDeleteRoom(selectedRoom.id)}
                   className="w-full py-2.5 px-4 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 rounded-xl text-red-400 text-sm font-medium transition-all flex items-center justify-center gap-2"

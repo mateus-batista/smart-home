@@ -33,6 +33,7 @@ npm run lint             # ESLint checks
 cd voice-assistant
 uv sync                  # Install dependencies
 uv sync --extra tts      # Include Text-to-Speech
+uv sync --extra cloud    # Include cloud LLM providers (OpenAI, Anthropic)
 uv sync --extra dev      # Include dev tools
 uv run belle             # Start voice assistant
 uv run pytest            # Run tests
@@ -78,7 +79,7 @@ docker compose up -d                    # Start PostgreSQL (port 5433)
 ### Voice Assistant (`voice-assistant/src/belle/`)
 - **main.py** - FastAPI entry point with WebSocket endpoint
 - **stt.py** - Whisper speech-to-text
-- **llm.py** - Qwen LLM for function calling
+- **llm/** - LLM package with pluggable providers (local MLX/Qwen, OpenAI, Anthropic)
 - **tools/** - Device/room/group control functions
 
 ## Key Patterns
@@ -93,7 +94,8 @@ All devices (Hue, Nanoleaf, SwitchBot) are normalized to a common `Light` interf
 Routes handle HTTP concerns; services contain business logic and external API calls. Device state is synced to the database for room/group enrichment.
 
 ### Voice Assistant
-- Uses MLX for local AI inference (Whisper STT, Qwen LLM)
+- Uses MLX for local AI inference (Whisper STT, Qwen LLM) by default
+- Supports cloud LLM providers (OpenAI, Anthropic) as optional alternatives
 - LLM function calling maps voice commands to device control
 - WebSocket for real-time audio communication
 - Bilingual: English and Portuguese
@@ -105,3 +107,10 @@ Server requires:
 - `HUE_BRIDGE_IP`, `HUE_USERNAME` - Philips Hue credentials
 - `SWITCHBOT_TOKEN`, `SWITCHBOT_SECRET` - SwitchBot API credentials
 - Nanoleaf devices configured via `/api/nanoleaf/authenticate`
+
+Voice Assistant (all prefixed with `BELLE_`):
+- `BELLE_LLM_PROVIDER` - LLM provider: `local` (default), `openai`, or `anthropic`
+- `BELLE_OPENAI_API_KEY` - OpenAI API key (required when provider=openai)
+- `BELLE_OPENAI_MODEL` - OpenAI model (default: `gpt-4o-mini`)
+- `BELLE_ANTHROPIC_API_KEY` - Anthropic API key (required when provider=anthropic)
+- `BELLE_ANTHROPIC_MODEL` - Anthropic model (default: `claude-haiku-4-5-20251001`)

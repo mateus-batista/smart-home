@@ -2,12 +2,10 @@
 
 import time
 
-import pytest
-
 from belle.conversation import (
-    Message,
-    ConversationSession,
     ConversationManager,
+    ConversationSession,
+    Message,
     get_conversation_manager,
 )
 

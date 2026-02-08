@@ -189,8 +189,8 @@ export function LightControl({ device, onUpdate, onClose, onToggleHidden }: Ligh
                     disabled={!device.reachable || !localState.on}
                     className={`p-3 rounded-xl text-left text-sm transition-all ${
                       currentEffect === effect
-                        ? 'bg-green-500/20 border-green-500 border'
-                        : 'bg-zinc-800 border-zinc-700 border hover:bg-zinc-700'
+                        ? 'bg-amber-500/20 border-amber-500 border'
+                        : 'glass-pill hover:bg-white/10'
                     } ${!device.reachable || !localState.on ? 'opacity-50' : ''}`}
                   >
                     {effect}
@@ -205,13 +205,13 @@ export function LightControl({ device, onUpdate, onClose, onToggleHidden }: Ligh
 
         {/* Hide device option */}
         {onToggleHidden && (
-          <div className="pt-4 border-t border-zinc-800">
+          <div className="pt-4 border-t border-white/[0.06]">
             <button
               onClick={handleToggleHidden}
               className={`w-full py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all ${
                 device.hidden
                   ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
-                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-300'
+                  : 'glass-pill text-zinc-400 hover:bg-white/10 hover:text-zinc-300'
               }`}
             >
               {device.hidden ? (

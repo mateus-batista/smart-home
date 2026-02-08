@@ -379,6 +379,7 @@ class TestVoicePipelineToDeviceAction:
             mock_stt.return_value = {
                 "text": "turn on the kitchen light",
                 "language": "en",
+                "confidence": {"no_speech_prob": 0.0, "confidence_score": 0.9},
             }
 
             # LLM processes and returns with action
@@ -418,6 +419,7 @@ class TestVoicePipelineToDeviceAction:
             mock_stt.return_value = {
                 "text": "dim the living room to 30 percent",
                 "language": "en",
+                "confidence": {"no_speech_prob": 0.0, "confidence_score": 0.9},
             }
 
             mock_chat.return_value = {

@@ -27,7 +27,7 @@ function StatusDotComponent({
       className={`
         rounded-full
         ${sizeClasses[size]}
-        ${connected ? 'bg-green-500' : 'bg-zinc-500'}
+        ${connected ? 'bg-amber-500' : 'bg-zinc-500'}
         ${bordered ? 'border-2 border-zinc-950' : ''}
         ${className}
       `}

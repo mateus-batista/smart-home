@@ -11,7 +11,10 @@
       "Bash(npm run lint)",
       "Bash(npm run build:*)",
       "Bash(npm run lint:*)",
-      "Bash(npm test:*)"
+      "Bash(npm test:*)",
+      "Bash(npx vite build)",
+      "Bash(uv run ruff check:*)",
+      "Bash(uv run ruff format:*)"
     ]
   }
 }

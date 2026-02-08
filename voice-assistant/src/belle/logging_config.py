@@ -5,7 +5,7 @@ import json
 import logging
 import sys
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 # Context variable for request tracing
@@ -64,7 +64,7 @@ class JSONFormatter(logging.Formatter):
         }
 
         if self.include_timestamp:
-            log_data["timestamp"] = datetime.now(timezone.utc).isoformat()
+            log_data["timestamp"] = datetime.now(UTC).isoformat()
 
         # Add request ID if available (for request tracing)
         request_id = get_request_id()

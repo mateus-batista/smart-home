@@ -19,9 +19,9 @@ function CloseButtonComponent({
   className = '',
 }: CloseButtonProps) {
   const variantClasses = {
-    default: 'p-2 rounded-xl hover:bg-zinc-700 text-zinc-400 hover:text-white',
+    default: 'p-2 rounded-xl hover:bg-white/10 text-zinc-400 hover:text-white',
     overlay: 'p-2 rounded-full bg-black/20 hover:bg-black/40 text-white',
-    subtle: 'p-2 rounded-xl hover:bg-zinc-700/50 text-zinc-400 hover:text-white',
+    subtle: 'p-2 rounded-xl hover:bg-white/8 text-zinc-400 hover:text-white',
   };
 
   const sizeMap = {

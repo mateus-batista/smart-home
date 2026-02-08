@@ -19,7 +19,7 @@ function ShadeCardComponent({ device, onPositionChange, onClick }: ShadeCardProp
   const { state, name, reachable } = device;
   const position = state.brightness;
   const isTilt = isBlindTilt(device);
-  const visualOpenness = getVisualOpenness(position, isTilt);
+  const visualOpenness = getVisualOpenness(position);
 
   // Get shade icon based on position
   const getShadeIcon = () => {
@@ -57,9 +57,9 @@ function ShadeCardComponent({ device, onPositionChange, onClick }: ShadeCardProp
   return (
     <div
       className={`
-        aspect-square flex flex-col items-center justify-between p-3 rounded-xl cursor-pointer
-        transition-all hover:scale-[1.02] border border-zinc-700/50
-        ${reachable ? 'bg-blue-950/40' : 'bg-zinc-800/40 opacity-60'}
+        aspect-square flex flex-col items-center justify-between p-3 rounded-2xl cursor-pointer
+        transition-all hover:scale-[1.02] glass-card
+        ${!reachable ? 'opacity-60' : ''}
       `}
       style={glowStyle}
       onClick={onClick}

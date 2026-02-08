@@ -254,7 +254,7 @@ export function SetupWizard({ onComplete, hueConfigured, nanoleafConfigured }: S
                   value={nanoleafIp}
                   onChange={(e) => setNanoleafIp(e.target.value)}
                   placeholder="192.168.1.100"
-                  className="w-full p-3 bg-zinc-800 border border-zinc-700 rounded-xl focus:outline-none focus:border-green-500"
+                  className="w-full p-3 bg-zinc-800 border border-zinc-700 rounded-xl focus:outline-none focus:border-amber-500"
                 />
               </div>
               <div>
@@ -264,7 +264,7 @@ export function SetupWizard({ onComplete, hueConfigured, nanoleafConfigured }: S
                   value={nanoleafName}
                   onChange={(e) => setNanoleafName(e.target.value)}
                   placeholder="Living Room Nanoleaf"
-                  className="w-full p-3 bg-zinc-800 border border-zinc-700 rounded-xl focus:outline-none focus:border-green-500"
+                  className="w-full p-3 bg-zinc-800 border border-zinc-700 rounded-xl focus:outline-none focus:border-amber-500"
                 />
               </div>
             </div>
@@ -297,7 +297,7 @@ export function SetupWizard({ onComplete, hueConfigured, nanoleafConfigured }: S
               <button
                 onClick={connectNanoleaf}
                 disabled={loading || !nanoleafIp}
-                className="flex-1 py-3 px-4 bg-green-500 hover:bg-green-600 disabled:opacity-50 rounded-xl font-medium transition-colors"
+                className="flex-1 py-3 px-4 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 rounded-xl font-medium transition-colors"
               >
                 {loading ? 'Connecting...' : 'Connect'}
               </button>
@@ -315,7 +315,7 @@ export function SetupWizard({ onComplete, hueConfigured, nanoleafConfigured }: S
             </p>
             <button
               onClick={onComplete}
-              className="w-full py-3 px-4 bg-green-500 hover:bg-green-600 rounded-xl font-medium transition-colors"
+              className="w-full py-3 px-4 bg-amber-500 hover:bg-amber-600 rounded-xl font-medium transition-colors"
             >
               Start Using Smart Home
             </button>

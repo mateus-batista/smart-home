@@ -21,7 +21,7 @@ function EmptyStateComponent({
 }: EmptyStateProps) {
   return (
     <div className={`text-center py-12 ${className}`}>
-      <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-zinc-800 flex items-center justify-center">
+      <div className="w-16 h-16 mx-auto mb-4 rounded-2xl glass-pill flex items-center justify-center">
         <span className="w-8 h-8 text-zinc-600">{icon}</span>
       </div>
       <p className="text-zinc-400 font-medium">{title}</p>

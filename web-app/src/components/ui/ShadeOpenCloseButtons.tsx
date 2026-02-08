@@ -65,14 +65,14 @@ function ShadeOpenCloseButtonsComponent({
   // Large variant - full width buttons with labels
   if (size === 'lg') {
     return (
-      <div className={`flex gap-3 ${className}`}>
+      <div className={`flex gap-3 p-1 ${className}`}>
         <button
           onClick={handleOpen}
           disabled={disabled || isLoading}
-          className={`flex-1 py-4 rounded-xl font-medium flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
+          className={`flex-1 py-4 px-2 rounded-xl font-medium flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
             isFullyOpen
               ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-              : 'bg-zinc-800 hover:bg-zinc-700 text-white border border-transparent'
+              : 'glass-pill hover:bg-white/10 text-white'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           {openLoading ? (
@@ -88,10 +88,10 @@ function ShadeOpenCloseButtonsComponent({
         <button
           onClick={handleClose}
           disabled={disabled || isLoading}
-          className={`flex-1 py-4 rounded-xl font-medium flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
+          className={`flex-1 py-4 px-2 rounded-xl font-medium flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
             isFullyClosed
               ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
-              : 'bg-zinc-800 hover:bg-zinc-700 text-white border border-transparent'
+              : 'glass-pill hover:bg-white/10 text-white'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           {closeLoading ? (
@@ -114,7 +114,7 @@ function ShadeOpenCloseButtonsComponent({
     <div 
       className={`
         flex rounded-full p-1 shrink-0
-        ${disabled ? 'opacity-50 bg-zinc-800' : 'bg-zinc-800'}
+        ${disabled ? 'opacity-50' : ''} glass-button
         ${className}
       `}
       onClick={(e) => e.stopPropagation()}
@@ -129,7 +129,7 @@ function ShadeOpenCloseButtonsComponent({
           ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}
           ${isFullyOpen 
             ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30' 
-            : 'text-zinc-400 hover:text-white hover:bg-zinc-700'
+            : 'text-zinc-400 hover:text-white hover:bg-white/10'
           }
         `}
       >
@@ -153,7 +153,7 @@ function ShadeOpenCloseButtonsComponent({
           ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}
           ${isFullyClosed 
             ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30' 
-            : 'text-zinc-400 hover:text-white hover:bg-zinc-700'
+            : 'text-zinc-400 hover:text-white hover:bg-white/10'
           }
         `}
       >

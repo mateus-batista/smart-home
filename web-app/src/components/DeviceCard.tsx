@@ -53,9 +53,8 @@ function DeviceCardComponent({ device, onToggle, onClick }: DeviceCardProps) {
   return (
     <div
       className={`
-        aspect-square flex flex-col items-center justify-between p-3 rounded-xl cursor-pointer
-        transition-all hover:scale-[1.02] border border-zinc-700/50
-        ${state.on && reachable ? 'bg-zinc-800/80' : 'bg-zinc-800/40'}
+        aspect-square flex flex-col items-center justify-between p-3 rounded-2xl cursor-pointer
+        transition-all hover:scale-[1.02] glass-card
         ${!reachable ? 'opacity-60' : ''}
       `}
       style={glowStyle}

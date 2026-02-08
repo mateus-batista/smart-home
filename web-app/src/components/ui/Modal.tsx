@@ -32,11 +32,11 @@ export function Modal({
 
   return (
     <div
-      className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4 ${backdropClassName}`}
+      className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4 ${backdropClassName}`}
       onClick={handleBackdropClick}
     >
       <div
-        className={`bg-zinc-900 ${mobileFullScreen ? 'w-full h-full sm:h-auto sm:max-h-[90vh] rounded-t-3xl sm:rounded-3xl' : `rounded-3xl max-h-[90vh]`} ${maxWidth} sm:w-full overflow-y-auto ${contentClassName}`}
+        className={`glass-surface ${mobileFullScreen ? 'w-full h-full sm:h-auto sm:max-h-[90vh] rounded-t-3xl sm:rounded-3xl' : `rounded-3xl max-h-[90vh]`} ${maxWidth} sm:w-full flex flex-col overflow-hidden ${contentClassName}`}
         onClick={(e) => e.stopPropagation()}
       >
         {children}
@@ -65,7 +65,7 @@ export function ModalHeader({
 }: ModalHeaderProps) {
   return (
     <div
-      className={`p-6 sm:p-8 rounded-t-3xl transition-all relative ${className}`}
+      className={`p-6 sm:p-8 rounded-t-3xl transition-all relative shrink-0 ${className}`}
       style={style}
     >
       {showCloseButton && (
@@ -89,5 +89,5 @@ interface ModalContentProps {
 }
 
 export function ModalContent({ children, className = '' }: ModalContentProps) {
-  return <div className={`p-5 sm:p-6 pb-8 sm:pb-6 space-y-5 sm:space-y-6 ${className}`}>{children}</div>;
+  return <div className={`p-5 sm:p-6 pb-8 sm:pb-6 space-y-5 sm:space-y-6 overflow-y-auto ${className}`}>{children}</div>;
 }

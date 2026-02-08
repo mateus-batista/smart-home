@@ -4,7 +4,6 @@ import asyncio
 import base64
 import io
 import json
-import logging
 import wave
 from contextlib import asynccontextmanager
 from typing import Any
@@ -16,16 +15,16 @@ from pydantic import BaseModel
 
 from belle import __version__
 from belle.config import settings
+from belle.conversation import get_conversation_manager
 from belle.http import close_client
 from belle.llm import chat_async
 from belle.llm import preload_model as preload_llm
-from belle.logging_config import setup_logging, get_logger, set_request_id, clear_request_id
+from belle.logging_config import clear_request_id, get_logger, set_request_id, setup_logging
+from belle.stt import is_valid_speech, transcribe_audio_async
 from belle.stt import preload_model as preload_stt
-from belle.stt import transcribe_audio_async
 from belle.tools import get_all_devices
 from belle.tts import is_tts_available, synthesize_speech_to_wav_async
 from belle.tts import preload_model as preload_tts
-from belle.conversation import get_conversation_manager
 
 # Configure logging with optional JSON output
 setup_logging(
@@ -236,6 +235,11 @@ async def voice_endpoint(request: VoiceRequest):
 
         logger.info(f"[{request_id}] STT: {transcription['text']}")
 
+        # Filter out non-speech audio
+        if not is_valid_speech(transcription):
+            logger.info(f"[{request_id}] No valid speech detected, skipping LLM")
+            return VoiceResponse(transcript="", response="", actions=[])
+
         # Get conversation history if session_id provided
         conversation_history = None
         if request.session_id:
@@ -332,6 +336,12 @@ async def websocket_endpoint(websocket: WebSocket):
                     # Transcribe
                     transcription = await transcribe_audio_async(audio_array, language)
                     logger.info(f"WS [{session_id}] STT: {transcription['text']}")
+
+                    # Filter out non-speech audio
+                    if not is_valid_speech(transcription):
+                        logger.info(f"WS [{session_id}] No speech detected, skipping")
+                        await websocket.send_json({"type": "no_speech"})
+                        continue
 
                     # Send transcription immediately
                     await websocket.send_json({

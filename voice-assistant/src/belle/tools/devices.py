@@ -392,7 +392,7 @@ async def control_shade(
         if not device:
             # Filter to show only shade-type devices
             shade_devices = [
-                d.get("name") for d in devices 
+                d.get("name") for d in devices
                 if d.get("deviceType") in ["Curtain", "Curtain3", "Blind Tilt", "Roller Shade"]
                 or "shade" in d.get("name", "").lower()
                 or "curtain" in d.get("name", "").lower()
@@ -408,7 +408,7 @@ async def control_shade(
 
         # Check if this is a Blind Tilt device
         is_blind_tilt = _is_blind_tilt(device)
-        
+
         # Build state update based on action
         state_update: dict[str, Any] = {}
 
@@ -426,7 +426,7 @@ async def control_shade(
         elif action == "stop":
             # For stop, we need to send a specific command
             # Most APIs don't support stop via state, so we'll try with the current position
-            logger.info(f"Stop command for shade - maintaining current position")
+            logger.info("Stop command for shade - maintaining current position")
             return {
                 "success": True,
                 "device": device.get("name"),

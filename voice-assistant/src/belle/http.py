@@ -3,9 +3,10 @@
 import asyncio
 import logging
 import random
+from collections.abc import Callable
 from contextlib import asynccontextmanager
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 import httpx
 

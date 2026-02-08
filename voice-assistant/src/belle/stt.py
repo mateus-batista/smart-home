@@ -160,6 +160,30 @@ def _calculate_confidence(segments: list[dict]) -> dict:
     }
 
 
+def is_valid_speech(transcription: dict) -> bool:
+    """Check if transcription contains actual speech worth processing."""
+    text = transcription.get("text", "").strip()
+    confidence = transcription.get("confidence", {})
+
+    # No text at all
+    if not text:
+        return False
+
+    # High no-speech probability — likely silence/noise
+    if confidence.get("no_speech_prob", 0) > 0.5:
+        return False
+
+    # Very low confidence — likely hallucination
+    if confidence.get("confidence_score", 0) < 0.3:
+        return False
+
+    # Too short to be meaningful (single character, noise artifacts)
+    if len(text) < 2:
+        return False
+
+    return True
+
+
 def transcribe_audio_file(file_path: str | Path, language: str | None = None) -> dict:
     """
     Transcribe an audio file to text.

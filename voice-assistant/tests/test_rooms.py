@@ -5,13 +5,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from belle.tools.rooms import (
+    _get_shade_state_update,
+    _is_blind_tilt,
+    _is_shade_device,
     _room_cache,
     control_room,
     control_room_shades,
     get_all_rooms,
-    _is_shade_device,
-    _is_blind_tilt,
-    _get_shade_state_update,
 )
 
 

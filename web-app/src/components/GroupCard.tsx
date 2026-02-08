@@ -7,103 +7,141 @@ import { ShadeOpenCloseButtons } from './ui/ShadeOpenCloseButtons';
 // Icon component that renders appropriate icon based on device type
 function GroupIcon({ iconType, isOn, position }: { iconType: DeviceIconType | 'empty'; isOn: boolean; position: number }) {
   const shadeActive = position > 50;
+  const base = "w-8 h-8 transition-colors";
+  const lc = "round" as const; // strokeLinecap/strokeLinejoin shorthand
 
   switch (iconType) {
     case 'bulb':
-      // Light bulb icon
       return (
-        <svg className={`w-8 h-8 transition-colors ${isOn ? 'text-amber-400' : 'text-zinc-400'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v1m0 18v1m9-10h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6a6 6 0 00-3 11.197V19a1 1 0 001 1h4a1 1 0 001-1v-1.803A6 6 0 0012 6z" fill={isOn ? 'currentColor' : 'none'} fillOpacity={isOn ? 0.3 : 0} />
+        <svg className={`${base} ${isOn ? 'text-amber-400' : 'text-zinc-400'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap={lc} strokeLinejoin={lc}>
+          {/* Bulb body */}
+          <path d="M9 18h6" />
+          <path d="M10 21h4" />
+          <path d="M12 2a7 7 0 00-4 12.7V17a1 1 0 001 1h6a1 1 0 001-1v-2.3A7 7 0 0012 2z" fill={isOn ? 'currentColor' : 'none'} fillOpacity={isOn ? 0.25 : 0} />
+          {/* Glow rays */}
+          {isOn && (
+            <>
+              <path d="M12 0v1" strokeOpacity="0.4" />
+              <path d="M4.2 4.2l.7.7" strokeOpacity="0.4" />
+              <path d="M1 12h1" strokeOpacity="0.4" />
+              <path d="M22 12h1" strokeOpacity="0.4" />
+              <path d="M19.1 4.9l-.7.7" strokeOpacity="0.4" />
+            </>
+          )}
         </svg>
       );
 
     case 'strip':
-      // Strip light icon
       return (
-        <svg className={`w-8 h-8 transition-colors ${isOn ? 'text-violet-400' : 'text-zinc-400'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <rect x="2" y="10" width="20" height="4" rx="1" fill={isOn ? 'currentColor' : 'none'} fillOpacity={isOn ? 0.3 : 0} />
+        <svg className={`${base} ${isOn ? 'text-violet-400' : 'text-zinc-400'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap={lc} strokeLinejoin={lc}>
+          {/* LED strip body */}
+          <rect x="1" y="9.5" width="22" height="5" rx="2.5" fill={isOn ? 'currentColor' : 'none'} fillOpacity={isOn ? 0.2 : 0} />
+          {/* Individual LEDs */}
+          <circle cx="5.5" cy="12" r={isOn ? 1.4 : 1} fill={isOn ? 'currentColor' : 'none'} fillOpacity={isOn ? 0.9 : 0} />
+          <circle cx="9.5" cy="12" r={isOn ? 1.4 : 1} fill={isOn ? 'currentColor' : 'none'} fillOpacity={isOn ? 0.9 : 0} />
+          <circle cx="13.5" cy="12" r={isOn ? 1.4 : 1} fill={isOn ? 'currentColor' : 'none'} fillOpacity={isOn ? 0.9 : 0} />
+          <circle cx="17.5" cy="12" r={isOn ? 1.4 : 1} fill={isOn ? 'currentColor' : 'none'} fillOpacity={isOn ? 0.9 : 0} />
+          {/* Glow halos when on */}
           {isOn && (
             <>
-              <circle cx="6" cy="12" r="1" fill="currentColor" />
-              <circle cx="10" cy="12" r="1" fill="currentColor" />
-              <circle cx="14" cy="12" r="1" fill="currentColor" />
-              <circle cx="18" cy="12" r="1" fill="currentColor" />
+              <circle cx="5.5" cy="12" r="2.5" fill="currentColor" fillOpacity="0.15" stroke="none" />
+              <circle cx="9.5" cy="12" r="2.5" fill="currentColor" fillOpacity="0.15" stroke="none" />
+              <circle cx="13.5" cy="12" r="2.5" fill="currentColor" fillOpacity="0.15" stroke="none" />
+              <circle cx="17.5" cy="12" r="2.5" fill="currentColor" fillOpacity="0.15" stroke="none" />
             </>
           )}
         </svg>
       );
 
     case 'nanoleaf':
-      // Nanoleaf panels icon (triangles)
       return (
-        <svg className={`w-8 h-8 transition-colors ${isOn ? 'text-green-400' : 'text-zinc-400'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path d="M12 3L4 17h16L12 3z" fill={isOn ? 'currentColor' : 'none'} fillOpacity={isOn ? 0.3 : 0} />
-          <path d="M8 17l4 4 4-4" fill={isOn ? 'currentColor' : 'none'} fillOpacity={isOn ? 0.2 : 0} />
+        <svg className={`${base} ${isOn ? 'text-emerald-400' : 'text-zinc-400'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap={lc} strokeLinejoin={lc}>
+          {/* Top panel */}
+          <path d="M12 2L6 12h12L12 2z" fill={isOn ? 'currentColor' : 'none'} fillOpacity={isOn ? 0.3 : 0} />
+          {/* Bottom-left panel */}
+          <path d="M6 12l-3 9h9L6 12z" fill={isOn ? 'currentColor' : 'none'} fillOpacity={isOn ? 0.2 : 0} />
+          {/* Bottom-right panel */}
+          <path d="M18 12l-6 9h9l-3-9z" fill={isOn ? 'currentColor' : 'none'} fillOpacity={isOn ? 0.25 : 0} />
         </svg>
       );
 
     case 'blind-tilt':
-      // Blind tilt icon with horizontal slats
       return (
-        <svg className={`w-8 h-8 transition-colors ${shadeActive ? 'text-blue-400' : 'text-zinc-400'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <rect x="3" y="3" width="18" height="18" rx="2" />
-          {/* Tilted slats */}
-          <line x1="5" y1="7" x2="19" y2="7" strokeWidth="2" transform={`rotate(${shadeActive ? 15 : 0} 12 7)`} />
-          <line x1="5" y1="11" x2="19" y2="11" strokeWidth="2" transform={`rotate(${shadeActive ? 15 : 0} 12 11)`} />
-          <line x1="5" y1="15" x2="19" y2="15" strokeWidth="2" transform={`rotate(${shadeActive ? 15 : 0} 12 15)`} />
+        <svg className={`${base} ${shadeActive ? 'text-blue-400' : 'text-zinc-400'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap={lc} strokeLinejoin={lc}>
+          {/* Window frame */}
+          <rect x="3" y="2" width="18" height="20" rx="2.5" />
+          {/* Horizontal slats — rotate when active (open) */}
+          <g transform={`rotate(${shadeActive ? 20 : 0} 12 7)`}><line x1="6" y1="7" x2="18" y2="7" strokeWidth="1.8" /></g>
+          <g transform={`rotate(${shadeActive ? 20 : 0} 12 11)`}><line x1="6" y1="11" x2="18" y2="11" strokeWidth="1.8" /></g>
+          <g transform={`rotate(${shadeActive ? 20 : 0} 12 15)`}><line x1="6" y1="15" x2="18" y2="15" strokeWidth="1.8" /></g>
+          <g transform={`rotate(${shadeActive ? 20 : 0} 12 19)`}><line x1="6" y1="19" x2="18" y2="19" strokeWidth="1.8" /></g>
         </svg>
       );
 
     case 'curtain':
-      // Curtain icon
       return (
-        <svg className={`w-8 h-8 transition-colors ${shadeActive ? 'text-blue-400' : 'text-zinc-400'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <rect x="3" y="3" width="18" height="18" rx="2" />
-          {/* Curtain panels */}
-          <path d={`M3 3 Q7 12, 3 21`} fill="currentColor" fillOpacity={shadeActive ? 0.2 : 0.4} />
-          <path d={`M21 3 Q17 12, 21 21`} fill="currentColor" fillOpacity={shadeActive ? 0.2 : 0.4} />
-          {!shadeActive && (
-            <>
-              <path d="M8 3 Q10 12, 8 21" fill="currentColor" fillOpacity="0.3" />
-              <path d="M16 3 Q14 12, 16 21" fill="currentColor" fillOpacity="0.3" />
-            </>
-          )}
+        <svg className={`${base} ${shadeActive ? 'text-blue-400' : 'text-zinc-400'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap={lc} strokeLinejoin={lc}>
+          {/* Curtain rod */}
+          <line x1="2" y1="3" x2="22" y2="3" strokeWidth="2" />
+          <circle cx="2" cy="3" r="1" fill="currentColor" stroke="none" />
+          <circle cx="22" cy="3" r="1" fill="currentColor" stroke="none" />
+          {/* Left drape */}
+          <path d={shadeActive ? "M3 3c0 0 2 8 1 18" : "M3 3c0 0 6 6 5 18"} fill="currentColor" fillOpacity={shadeActive ? 0.15 : 0.3} />
+          <path d={shadeActive ? "M5 3c0 0 2 8 1 18" : "M8 3c0 0 4 6 2 18"} fill="currentColor" fillOpacity={shadeActive ? 0.1 : 0.2} />
+          {/* Right drape */}
+          <path d={shadeActive ? "M21 3c0 0 -2 8 -1 18" : "M21 3c0 0 -6 6 -5 18"} fill="currentColor" fillOpacity={shadeActive ? 0.15 : 0.3} />
+          <path d={shadeActive ? "M19 3c0 0 -2 8 -1 18" : "M16 3c0 0 -4 6 -2 18"} fill="currentColor" fillOpacity={shadeActive ? 0.1 : 0.2} />
         </svg>
       );
 
-    case 'roller-shade':
-      // Roller shade icon
+    case 'roller-shade': {
+      const fabricH = Math.max(2, 16 - (position / 100) * 14);
       return (
-        <svg className={`w-8 h-8 transition-colors ${shadeActive ? 'text-blue-400' : 'text-zinc-400'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <rect x="3" y="3" width="18" height="18" rx="2" />
+        <svg className={`${base} ${shadeActive ? 'text-blue-400' : 'text-zinc-400'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap={lc} strokeLinejoin={lc}>
+          {/* Window frame */}
+          <rect x="3" y="2" width="18" height="20" rx="2.5" />
+          {/* Roller tube */}
+          <rect x="4" y="3" width="16" height="2.5" rx="1.25" fill="currentColor" fillOpacity="0.35" stroke="none" />
           {/* Shade fabric */}
-          <rect x="4" y="4" width="16" height={16 - (position / 100) * 14} fill="currentColor" fillOpacity="0.4" />
-          {/* Pull cord */}
-          <line x1="12" y1={6 + (16 - (position / 100) * 14)} x2="12" y2="19" strokeWidth="1" />
-          <circle cx="12" cy="19" r="1" fill="currentColor" />
+          <rect x="5" y="5.5" width="14" height={fabricH} rx="0.5" fill="currentColor" fillOpacity="0.25" stroke="none" />
+          {/* Bottom bar / pull */}
+          <line x1="5" y1={5.5 + fabricH} x2="19" y2={5.5 + fabricH} strokeWidth="1.5" strokeOpacity="0.5" />
         </svg>
       );
+    }
 
-    case 'generic-shade':
-      // Generic shade/window icon
+    case 'generic-shade': {
+      const shadeH = Math.max(2, 16 - (position / 100) * 14);
       return (
-        <svg className={`w-8 h-8 transition-colors ${shadeActive ? 'text-blue-400' : 'text-zinc-400'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <rect x="3" y="3" width="18" height="18" rx="2" />
-          <rect x="4" y="4" width="16" height={16 - (position / 100) * 14} fill="currentColor" fillOpacity="0.4" />
-          <line x1="12" y1="3" x2="12" y2="21" strokeOpacity="0.3" />
-          <line x1="3" y1="12" x2="21" y2="12" strokeOpacity="0.3" />
+        <svg className={`${base} ${shadeActive ? 'text-blue-400' : 'text-zinc-400'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap={lc} strokeLinejoin={lc}>
+          {/* Window frame */}
+          <rect x="3" y="2" width="18" height="20" rx="2.5" />
+          {/* Window cross panes */}
+          <line x1="12" y1="2" x2="12" y2="22" strokeOpacity="0.2" />
+          <line x1="3" y1="12" x2="21" y2="12" strokeOpacity="0.2" />
+          {/* Shade overlay */}
+          <rect x="3.75" y="2.75" width="16.5" height={shadeH} rx="1" fill="currentColor" fillOpacity="0.3" stroke="none" />
         </svg>
       );
+    }
 
     case 'generic-light':
     case 'empty':
     default:
-      // Light bulb icon (default for lights)
       return (
-        <svg className={`w-8 h-8 transition-colors ${isOn ? 'text-amber-400' : 'text-zinc-400'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v1m0 18v1m9-10h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6a6 6 0 00-3 11.197V19a1 1 0 001 1h4a1 1 0 001-1v-1.803A6 6 0 0012 6z" fill={isOn ? 'currentColor' : 'none'} fillOpacity={isOn ? 0.3 : 0} />
+        <svg className={`${base} ${isOn ? 'text-amber-400' : 'text-zinc-400'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap={lc} strokeLinejoin={lc}>
+          {/* Pendant lamp */}
+          <line x1="12" y1="1" x2="12" y2="5" />
+          <path d="M7 5h10l-2 8H9L7 5z" fill={isOn ? 'currentColor' : 'none'} fillOpacity={isOn ? 0.25 : 0} />
+          <ellipse cx="12" cy="13" rx="3" ry="1" />
+          {/* Glow */}
+          {isOn && (
+            <>
+              <path d="M8 15l-2 5" strokeOpacity="0.3" />
+              <path d="M16 15l2 5" strokeOpacity="0.3" />
+              <path d="M12 14v6" strokeOpacity="0.3" />
+            </>
+          )}
         </svg>
       );
   }
@@ -190,12 +228,12 @@ function GroupCardComponent({ group, devices, onToggle, onBrightnessChange, onEd
   const getGradient = () => {
     const hash = group.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     const gradients = [
-      'from-purple-500/15 to-pink-500/15',
-      'from-blue-500/15 to-cyan-500/15',
-      'from-amber-500/15 to-orange-500/15',
-      'from-green-500/15 to-emerald-500/15',
-      'from-rose-500/15 to-red-500/15',
-      'from-indigo-500/15 to-violet-500/15',
+      'from-amber-500/15 to-yellow-500/15',
+      'from-rose-500/15 to-pink-500/15',
+      'from-yellow-600/15 to-amber-400/15',
+      'from-orange-500/15 to-amber-500/15',
+      'from-rose-400/15 to-rose-600/15',
+      'from-amber-400/15 to-orange-400/15',
     ];
     return gradients[hash % gradients.length];
   };
@@ -204,8 +242,8 @@ function GroupCardComponent({ group, devices, onToggle, onBrightnessChange, onEd
     <div
       onClick={onEdit}
       className={`
-        aspect-square flex flex-col items-center justify-between p-3 rounded-xl cursor-pointer
-        transition-all hover:scale-[1.02] border border-white/10
+        aspect-square flex flex-col items-center justify-between p-3 rounded-2xl cursor-pointer
+        transition-all hover:scale-[1.02] glass-card
         bg-linear-to-br ${getGradient()}
       `}
     >

@@ -7,14 +7,14 @@ import logging
 import pytest
 
 from belle.logging_config import (
-    JSONFormatter,
     ContextAdapter,
-    setup_logging,
-    get_logger,
-    set_request_id,
-    get_request_id,
+    JSONFormatter,
     clear_request_id,
     generate_request_id,
+    get_logger,
+    get_request_id,
+    set_request_id,
+    setup_logging,
 )
 
 
