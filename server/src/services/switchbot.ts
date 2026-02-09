@@ -163,7 +163,7 @@ function switchBotToLight(device: SwitchBotDevice, status?: SwitchBotDeviceStatu
     }
 
     state = {
-      on: openness === 0,
+      on: device.deviceType === 'Blind Tilt' ? openness === 0 : openness > 0,
       brightness: openness,
     };
   } else if (isLight && status) {
