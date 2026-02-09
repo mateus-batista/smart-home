@@ -1,6 +1,7 @@
 import { useState, useMemo, memo } from 'react';
 import type { DeviceGroup, Light, DeviceIconType } from '../types/devices';
 import { getGroupType, getGroupIconType } from '../types/devices';
+import { getVisualOpenness } from '../utils/shadeHelpers';
 import { ToggleSwitch } from './ui/ToggleSwitch';
 import { ShadeOpenCloseButtons } from './ui/ShadeOpenCloseButtons';
 
@@ -181,10 +182,10 @@ function GroupCardComponent({ group, devices, onToggle, onBrightnessChange, onEd
     const onDevices = groupDevices.filter(d => d.state.on && d.reachable);
     const anyOn = onDevices.length > 0;
 
-    // For shades, calculate average position
+    // For shades, calculate average visual openness (converting per-device brightness)
     const reachableDevices = groupDevices.filter(d => d.reachable);
     const avgPosition = reachableDevices.length > 0
-      ? Math.round(reachableDevices.reduce((sum, d) => sum + d.state.brightness, 0) / reachableDevices.length)
+      ? Math.round(reachableDevices.reduce((sum, d) => sum + getVisualOpenness(d.state.brightness, d.deviceType === 'Blind Tilt'), 0) / reachableDevices.length)
       : 0;
     
     return { isOn: anyOn, anyOn, position: avgPosition };
