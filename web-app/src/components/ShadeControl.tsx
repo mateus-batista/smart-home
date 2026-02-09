@@ -5,6 +5,7 @@ import { Slider } from './ui/Slider';
 import { ShadeVisual } from './ui/ShadeVisual';
 import { getVisualOpenness } from '../utils/shadeHelpers';
 import { ShadeOpenCloseButtons } from './ui/ShadeOpenCloseButtons';
+import { TiltBlindControl } from './ui/TiltBlindControl';
 
 interface ShadeControlProps {
   device: Light;
@@ -23,7 +24,7 @@ export function ShadeControl({ device, onUpdate, onClose, onToggleHidden }: Shad
   // For Blind Tilt: 50 = fully open (horizontal slats)
   const [localPosition, setLocalPosition] = useState(device.state.brightness);
   const isTilt = isBlindTilt(device);
-  const visualOpenness = getVisualOpenness(localPosition);
+  const visualOpenness = getVisualOpenness(localPosition, isTilt);
 
   const handlePositionChange = (position: number) => {
     setLocalPosition(position);
@@ -57,7 +58,14 @@ export function ShadeControl({ device, onUpdate, onClose, onToggleHidden }: Shad
   };
 
   const getStatusText = () => {
-    // Same logic for both Blind Tilt and regular shades: 0 = closed, 100 = open
+    if (isTilt) {
+      // Blind Tilt: -100 = closed up, 0 = open, +100 = closed down
+      if (localPosition <= -75) return 'Closed Up';
+      if (localPosition <= -25) return 'Half Open';
+      if (localPosition <= 25) return 'Open';
+      if (localPosition <= 75) return 'Half Closed';
+      return 'Closed Down';
+    }
     if (localPosition >= 100) return 'Fully Open';
     if (localPosition <= 0) return 'Fully Closed';
     return `${localPosition}% Open`;
@@ -73,88 +81,81 @@ export function ShadeControl({ device, onUpdate, onClose, onToggleHidden }: Shad
   return (
     <Modal onClose={onClose}>
       {/* Header with preview */}
-      <ModalHeader onClose={onClose} style={getPreviewStyle()}>
+      <ModalHeader onClose={onClose} style={isTilt ? undefined : getPreviewStyle()}>
         <div className="text-center pt-4">
           <h2 className="text-2xl font-semibold text-white drop-shadow-lg">{device.name}</h2>
           <p className="text-white/70 mt-1">
             {device.deviceType || 'Smart Shade'} • {getStatusText()}
           </p>
-          <ShadeVisual position={localPosition} isBlindTilt={isTilt} className="mt-4" />
+          {!isTilt && (
+            <ShadeVisual position={localPosition} isBlindTilt={false} className="mt-4" />
+          )}
         </div>
       </ModalHeader>
 
       {/* Controls */}
       <ModalContent>
-        {/* Quick presets */}
-        <div>
-          <h3 className="text-sm font-medium text-zinc-400 mb-3">Quick Presets</h3>
-          <div className="grid grid-cols-4 gap-2">
-            {[
-                  // Same presets for both Blind Tilt and regular shades: 0 = closed, 100 = open
+        {isTilt ? (
+          /* Tilt blind: interactive visual control */
+          <TiltBlindControl
+            position={localPosition}
+            onPositionChange={handlePreset}
+            disabled={!device.reachable}
+          />
+        ) : (
+          /* Regular shade controls */
+          <>
+            {/* Quick presets */}
+            <div>
+              <h3 className="text-sm font-medium text-zinc-400 mb-3">Quick Presets</h3>
+              <div className="grid grid-cols-4 gap-2">
+                {[
                   { label: 'Closed', value: 0, icon: '🌙' },
                   { label: '25%', value: 25, icon: '🌤️' },
                   { label: '50%', value: 50, icon: '⛅' },
                   { label: '75%', value: 75, icon: '🌥️' },
                 ].map(({ label, value, icon }) => (
-              <button
-                key={value}
-                onClick={() => handlePreset(value)}
-                disabled={!device.reachable}
-                className={`p-3 rounded-xl text-center transition-all ${
-                  localPosition === value
-                    ? 'bg-blue-500/30 border-blue-500 border'
-                    : 'glass-pill hover:bg-white/10'
-                } ${!device.reachable ? 'opacity-50' : ''}`}
-              >
-                <span className="text-xl">{icon}</span>
-                <p className="text-xs mt-1">{label}</p>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Open/Close buttons */}
-        <ShadeOpenCloseButtons
-          visualOpenness={visualOpenness}
-          onOpen={handleOpen}
-          onClose={handleClose}
-          disabled={!device.reachable}
-          size="lg"
-        />
-
-        {/* Position slider */}
-        <Slider
-          value={localPosition}
-          onChange={handlePositionChange}
-          onCommit={handlePositionCommit}
-          min={0}
-          max={100}
-          disabled={!device.reachable}
-          label={isTilt ? 'Tilt Angle' : 'Position'}
-          valueDisplay={`${visualOpenness}% open`}
-          gradient="linear-gradient(to right, #374151, #3b82f6, #87ceeb)"
-          hints={{ start: 'Closed', end: 'Open' }}
-        />
-
-        {/* Device info */}
-        <div className="pt-4 border-t border-white/[0.06]">
-          <div className="flex justify-between text-sm">
-            <span className="text-zinc-500">Type</span>
-            <span className="text-zinc-300">{device.deviceType || 'Smart Shade'}</span>
-          </div>
-          <div className="flex justify-between text-sm mt-2">
-            <span className="text-zinc-500">Status</span>
-            <span className={device.reachable ? 'text-amber-400' : 'text-red-400'}>
-              {device.reachable ? 'Online' : 'Offline'}
-            </span>
-          </div>
-          {device.roomName && (
-            <div className="flex justify-between text-sm mt-2">
-              <span className="text-zinc-500">Room</span>
-              <span className="text-zinc-300">{device.roomName}</span>
+                  <button
+                    key={value}
+                    onClick={() => handlePreset(value)}
+                    disabled={!device.reachable}
+                    className={`p-3 rounded-xl text-center transition-all ${
+                      localPosition === value
+                        ? 'bg-blue-500/30 border-blue-500 border'
+                        : 'glass-pill hover:bg-white/10'
+                    } ${!device.reachable ? 'opacity-50' : ''}`}
+                  >
+                    <span className="text-xl">{icon}</span>
+                    <p className="text-xs mt-1">{label}</p>
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
-        </div>
+
+            {/* Open/Close buttons */}
+            <ShadeOpenCloseButtons
+              visualOpenness={visualOpenness}
+              onOpen={handleOpen}
+              onClose={handleClose}
+              disabled={!device.reachable}
+              size="lg"
+            />
+
+            {/* Position slider */}
+            <Slider
+              value={localPosition}
+              onChange={handlePositionChange}
+              onCommit={handlePositionCommit}
+              min={0}
+              max={100}
+              disabled={!device.reachable}
+              label="Position"
+              valueDisplay={`${visualOpenness}% open`}
+              gradient="linear-gradient(to right, #374151, #3b82f6, #87ceeb)"
+              hints={{ start: 'Closed', end: 'Open' }}
+            />
+          </>
+        )}
 
         {/* Hide device option */}
         {onToggleHidden && (

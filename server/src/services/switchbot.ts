@@ -147,19 +147,24 @@ function switchBotToLight(device: SwitchBotDevice, status?: SwitchBotDeviceStatu
     let openness: number;
     
     if (device.deviceType === 'Blind Tilt') {
-      // Blind Tilt: position is tilt angle, not openness
-      // direction "down" + position 100 = fully open (tilted down to let light in)
-      // direction "down" + position 0 = closed (slats horizontal/blocking)
-      // We normalize to: 0 = closed, 100 = fully open (tilted down)
-      openness = position;
+      // Blind Tilt: map status back to nearest preset brightness
+      // Status is unreliable, but do our best: 0 = closed, 100 = open
+      const direction = (status?.direction ?? 'down').toLowerCase();
+      if (direction === 'up') {
+        // up: position 0 = closed up (-100), position 50 = half open (-50), 100 = open (0)
+        openness = position <= 25 ? -100 : position <= 75 ? -50 : 0;
+      } else {
+        // down: position 0 = closed down (100), position 33 = half closed (50), 100 = open (0)
+        openness = position <= 16 ? 100 : position <= 50 ? 50 : 0;
+      }
     } else {
       // Curtain/Roller Shade: slidePosition 0 = closed, 100 = fully open
       openness = position;
     }
-    
+
     state = {
-      on: openness > 0,
-      brightness: openness, // brightness represents openness (0 = closed, 100 = open)
+      on: openness === 0,
+      brightness: openness,
     };
   } else if (isLight && status) {
     state = {
@@ -287,23 +292,40 @@ async function setPlugState(deviceId: string, state: Partial<DeviceState>): Prom
 }
 
 /**
- * Get the position value for a Blind Tilt device based on desired state.
+ * Blind Tilt preset commands.
+ * SwitchBot API: direction;position where 0 = fully closed, 100 = fully open.
  *
- * For Blind Tilt:
- * - position 100 = slats tilted down = fully open (lets light in)
- * - position 0 = slats horizontal = closed (blocks light)
- *
- * @param state - The desired device state
- * @returns The position value to send to the device, or null if no change needed
+ * Presets (keyed by brightness value used in frontend):
+ *   -100 → up;0    (Closed Up)
+ *    -50 → up;50   (Half Open upward)
+ *      0 → down;100 (Open / horizontal)
+ *     50 → down;33  (Half Closed downward)
+ *    100 → down;0   (Closed Down)
  */
-export function getBlindTiltPosition(state: Partial<DeviceState>): number | null {
+export const BLIND_TILT_PRESETS: Record<number, { direction: string; position: number }> = {
+  [-100]: { direction: 'up', position: 0 },
+  [-50]:  { direction: 'up', position: 50 },
+  [0]:    { direction: 'down', position: 100 },
+  [50]:   { direction: 'down', position: 33 },
+  [100]:  { direction: 'down', position: 0 },
+};
+
+/**
+ * Get the command for a Blind Tilt device based on brightness preset.
+ */
+export function getBlindTiltPosition(state: Partial<DeviceState>): { direction: string; position: number } | null {
   if (state.brightness !== undefined) {
-    return state.brightness;
+    const preset = BLIND_TILT_PRESETS[state.brightness];
+    if (preset) return preset;
+    // For non-preset values, find the nearest preset
+    const presetKeys = Object.keys(BLIND_TILT_PRESETS).map(Number).sort((a, b) => a - b);
+    const nearest = presetKeys.reduce((prev, curr) =>
+      Math.abs(curr - state.brightness!) < Math.abs(prev - state.brightness!) ? curr : prev
+    );
+    return BLIND_TILT_PRESETS[nearest];
   }
   if (state.on !== undefined) {
-    // on=true -> fully open (position 100, slats tilted down to let light in)
-    // on=false -> fully closed (position 0, slats horizontal/blocking)
-    return state.on ? 100 : 0;
+    return state.on ? BLIND_TILT_PRESETS[0] : BLIND_TILT_PRESETS[100];
   }
   return null;
 }
@@ -320,9 +342,9 @@ export function getShadeCommand(
   state: Partial<DeviceState>
 ): { command: string; parameter: string } | null {
   if (deviceType === 'Blind Tilt') {
-    const position = getBlindTiltPosition(state);
-    if (position !== null) {
-      return { command: 'setPosition', parameter: `down;${position}` };
+    const result = getBlindTiltPosition(state);
+    if (result !== null) {
+      return { command: 'setPosition', parameter: `${result.direction};${result.position}` };
     }
     return null;
   }

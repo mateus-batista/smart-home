@@ -19,7 +19,7 @@ function ShadeCardComponent({ device, onPositionChange, onClick }: ShadeCardProp
   const { state, name, reachable } = device;
   const position = state.brightness;
   const isTilt = isBlindTilt(device);
-  const visualOpenness = getVisualOpenness(position);
+  const visualOpenness = getVisualOpenness(position, isTilt);
 
   // Get shade icon based on position
   const getShadeIcon = () => {
@@ -47,11 +47,11 @@ function ShadeCardComponent({ device, onPositionChange, onClick }: ShadeCardProp
     : {};
 
   const handleOpen = () => {
-    onPositionChange(isTilt ? 50 : 100);
+    onPositionChange(isTilt ? 0 : 100);
   };
 
   const handleClose = () => {
-    onPositionChange(0);
+    onPositionChange(isTilt ? 100 : 0); // closes down for Blind Tilt
   };
 
   return (

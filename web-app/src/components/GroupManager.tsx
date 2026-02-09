@@ -6,11 +6,12 @@ import { CloseButton } from './ui/CloseButton';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import { EmptyState, EmptyStateIcons } from './ui/EmptyState';
 import { StatusDot } from './ui/StatusDot';
-import { ToggleSwitch } from './ui/ToggleSwitch';
 import { ShadeOpenCloseButtons } from './ui/ShadeOpenCloseButtons';
 import { Slider } from './ui/Slider';
 import { LightControl } from './LightControl';
 import { ShadeControl } from './ShadeControl';
+import { TiltBlindControl } from './ui/TiltBlindControl';
+import { BulbControl } from './ui/BulbControl';
 
 interface GroupManagerProps {
   groups: DeviceGroup[];
@@ -73,6 +74,7 @@ export function GroupManager({
   // Determine group type for consistent behavior
   const groupType = useMemo(() => getGroupType(groupDevices), [groupDevices]);
   const isShadeGroup = groupType === 'shade';
+  const isTiltGroup = isShadeGroup && groupDevices.length > 0 && groupDevices.every(d => d.deviceType === 'Blind Tilt');
 
   // Derive group state from actual devices
   const groupState = useMemo(() => {
@@ -170,16 +172,6 @@ export function GroupManager({
   };
 
   // Group-level control handlers
-  const handleGroupToggle = async () => {
-    if (!selectedGroupId || groupDevices.length === 0) return;
-    setIsGroupControlling(true);
-    try {
-      await onSetGroupState(selectedGroupId, { on: !groupState.anyOn });
-    } finally {
-      setTimeout(() => setIsGroupControlling(false), 500);
-    }
-  };
-
   const handleGroupOpen = async () => {
     if (!selectedGroupId || groupDevices.length === 0) return;
     setIsGroupControlling(true);
@@ -211,6 +203,16 @@ export function GroupManager({
       await onSetGroupState(selectedGroupId, { brightness: pendingGroupBrightness });
     } finally {
       setPendingGroupBrightness(null);
+      setTimeout(() => setIsGroupControlling(false), 500);
+    }
+  };
+
+  const handleTiltGroupPosition = async (position: number) => {
+    if (!selectedGroupId) return;
+    setIsGroupControlling(true);
+    try {
+      await onSetGroupState(selectedGroupId, { brightness: position });
+    } finally {
       setTimeout(() => setIsGroupControlling(false), 500);
     }
   };
@@ -450,48 +452,57 @@ export function GroupManager({
             <div className="flex-1 flex flex-col overflow-hidden">
               {/* Group-level controls */}
               {groupDevices.length > 0 && (
-                <div className="px-4 sm:px-5 py-4 space-y-5 border-b border-white/[0.06] shrink-0 bg-white/[0.03]">
-                  {/* Power / Open-Close control */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-medium">
-                      {isShadeGroup ? 'All Shades' : 'Power'}
-                    </span>
-                    {isShadeGroup ? (
-                      <ShadeOpenCloseButtons
-                        visualOpenness={displayGroupBrightness}
-                        onOpen={handleGroupOpen}
-                        onClose={handleGroupClose}
-                        disabled={groupDevices.length === 0}
-                        loading={isGroupControlling}
-                        size="lg"
-                      />
-                    ) : (
-                      <ToggleSwitch
-                        on={groupState.anyOn}
-                        onChange={handleGroupToggle}
-                        disabled={groupDevices.length === 0}
-                        loading={isGroupControlling}
-                        size="lg"
-                      />
-                    )}
-                  </div>
+                <div className={`px-4 sm:px-5 py-4 ${isTiltGroup ? '' : 'space-y-5'} border-b border-white/[0.06] shrink-0 bg-white/[0.03]`}>
+                  {isTiltGroup ? (
+                    <TiltBlindControl
+                      position={displayGroupBrightness}
+                      onPositionChange={handleTiltGroupPosition}
+                      disabled={isGroupControlling}
+                    />
+                  ) : isShadeGroup ? (
+                    <>
+                      {/* Shade group: Open/Close + Position slider */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-lg font-medium">All Shades</span>
+                        <ShadeOpenCloseButtons
+                          visualOpenness={displayGroupBrightness}
+                          onOpen={handleGroupOpen}
+                          onClose={handleGroupClose}
+                          disabled={groupDevices.length === 0}
+                          loading={isGroupControlling}
+                          size="lg"
+                        />
+                      </div>
 
-                  {/* Brightness / Position slider */}
-                  <Slider
-                    value={displayGroupBrightness}
-                    onChange={handleGroupBrightnessChange}
-                    onCommit={handleGroupBrightnessCommit}
-                    min={0}
-                    max={100}
-                    disabled={groupDevices.length === 0 || (!isShadeGroup && !groupState.anyOn)}
-                    label={isShadeGroup ? 'Position' : 'Brightness'}
-                    valueDisplay={`${displayGroupBrightness}%`}
-                    gradient={isShadeGroup
-                      ? 'linear-gradient(to right, #374151, #3b82f6, #87ceeb)'
-                      : 'linear-gradient(to right, #27272a, #78716c, #fbbf24, #fef3c7)'
-                    }
-                    hints={isShadeGroup ? { start: 'Closed', end: 'Open' } : { start: 'Dim', end: 'Bright' }}
-                  />
+                      <Slider
+                        value={displayGroupBrightness}
+                        onChange={handleGroupBrightnessChange}
+                        onCommit={handleGroupBrightnessCommit}
+                        min={0}
+                        max={100}
+                        disabled={groupDevices.length === 0}
+                        label="Position"
+                        valueDisplay={`${displayGroupBrightness}%`}
+                        gradient="linear-gradient(to right, #374151, #3b82f6, #87ceeb)"
+                        hints={{ start: 'Closed', end: 'Open' }}
+                      />
+                    </>
+                  ) : (
+                    /* Light group: BulbControl */
+                    <BulbControl
+                      brightness={displayGroupBrightness}
+                      onBrightnessChange={async (brightness) => {
+                        if (!selectedGroupId) return;
+                        setIsGroupControlling(true);
+                        try {
+                          await onSetGroupState(selectedGroupId, { brightness, on: brightness > 0 });
+                        } finally {
+                          setTimeout(() => setIsGroupControlling(false), 500);
+                        }
+                      }}
+                      disabled={groupDevices.length === 0 || isGroupControlling}
+                    />
+                  )}
                 </div>
               )}
 

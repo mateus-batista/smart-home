@@ -8,6 +8,8 @@ export type EnrichedLight = Light & Partial<Pick<LightWithRoomAndGroups, 'roomId
 export interface CacheEntry {
   device: EnrichedLight;
   lastUpdated: Date;
+  /** If set, polls won't overwrite state until this time has passed */
+  optimisticUntil?: Date;
 }
 
 /**
@@ -19,12 +21,20 @@ export class DeviceCache {
 
   /**
    * Update devices in the cache and return only the ones that changed.
+   * Skips devices with active optimistic state (recently commanded).
    */
   updateDevices(devices: EnrichedLight[]): EnrichedLight[] {
     const changedDevices: EnrichedLight[] = [];
+    const now = new Date();
 
     for (const device of devices) {
       const existing = this.cache.get(device.id);
+
+      // Skip poll update if optimistic state is still active
+      if (existing?.optimisticUntil && existing.optimisticUntil > now) {
+        continue;
+      }
+
       const hasChanged = !existing || this.hasDeviceChanged(existing.device, device);
 
       if (hasChanged) {
@@ -33,11 +43,31 @@ export class DeviceCache {
 
       this.cache.set(device.id, {
         device,
-        lastUpdated: new Date(),
+        lastUpdated: now,
       });
     }
 
     return changedDevices;
+  }
+
+  /**
+   * Set optimistic state for a device (e.g., after sending a command).
+   * Polls won't overwrite this state for the specified duration.
+   */
+  setOptimisticState(deviceId: string, state: Partial<Light['state']>, durationMs = 30000): void {
+    const existing = this.cache.get(deviceId);
+    if (!existing) return;
+
+    const updatedDevice = {
+      ...existing.device,
+      state: { ...existing.device.state, ...state },
+    };
+
+    this.cache.set(deviceId, {
+      device: updatedDevice,
+      lastUpdated: new Date(),
+      optimisticUntil: new Date(Date.now() + durationMs),
+    });
   }
 
   /**

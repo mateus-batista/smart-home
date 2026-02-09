@@ -33,66 +33,68 @@ describe('SwitchBot Service', () => {
   });
 
   describe('getBlindTiltPosition', () => {
-    describe('when brightness is specified', () => {
-      it('should return the brightness value directly', () => {
-        expect(getBlindTiltPosition({ brightness: 50 })).toBe(50);
-        expect(getBlindTiltPosition({ brightness: 0 })).toBe(0);
-        expect(getBlindTiltPosition({ brightness: 100 })).toBe(100);
-        expect(getBlindTiltPosition({ brightness: 25 })).toBe(25);
-      });
-
-      it('should use brightness even if on is also specified', () => {
-        expect(getBlindTiltPosition({ brightness: 75, on: false })).toBe(75);
-        expect(getBlindTiltPosition({ brightness: 25, on: true })).toBe(25);
-      });
+    it('should map preset brightness values to fixed commands', () => {
+      expect(getBlindTiltPosition({ brightness: -100 })).toEqual({ direction: 'up', position: 0 });
+      expect(getBlindTiltPosition({ brightness: -50 })).toEqual({ direction: 'up', position: 50 });
+      expect(getBlindTiltPosition({ brightness: 0 })).toEqual({ direction: 'down', position: 100 });
+      expect(getBlindTiltPosition({ brightness: 50 })).toEqual({ direction: 'down', position: 33 });
+      expect(getBlindTiltPosition({ brightness: 100 })).toEqual({ direction: 'down', position: 0 });
     });
 
-    describe('when only on/off is specified', () => {
-      it('should return 100 (tilted down, fully open) when on=true', () => {
-        expect(getBlindTiltPosition({ on: true })).toBe(100);
-      });
-
-      it('should return 0 (horizontal, closed) when on=false', () => {
-        expect(getBlindTiltPosition({ on: false })).toBe(0);
-      });
+    it('should snap non-preset values to nearest preset', () => {
+      expect(getBlindTiltPosition({ brightness: 80 })).toEqual({ direction: 'down', position: 0 });
+      expect(getBlindTiltPosition({ brightness: 20 })).toEqual({ direction: 'down', position: 100 });
+      expect(getBlindTiltPosition({ brightness: -75 })).toEqual({ direction: 'up', position: 0 });
     });
 
-    describe('when no state is specified', () => {
-      it('should return null for empty state', () => {
-        expect(getBlindTiltPosition({})).toBeNull();
-      });
+    it('should return open when on=true', () => {
+      expect(getBlindTiltPosition({ on: true })).toEqual({ direction: 'down', position: 100 });
+    });
+
+    it('should return closed down when on=false', () => {
+      expect(getBlindTiltPosition({ on: false })).toEqual({ direction: 'down', position: 0 });
+    });
+
+    it('should return null for empty state', () => {
+      expect(getBlindTiltPosition({})).toBeNull();
     });
   });
 
   describe('getShadeCommand', () => {
     describe('Blind Tilt', () => {
-      it('should return setPosition with down;100 for on=true (tilted down = fully open)', () => {
-        const result = getShadeCommand('Blind Tilt', { on: true });
-        expect(result).toEqual({
+      it('should send down;100 for open', () => {
+        expect(getShadeCommand('Blind Tilt', { on: true })).toEqual({
           command: 'setPosition',
           parameter: 'down;100',
         });
       });
 
-      it('should return setPosition with down;0 for on=false (horizontal = closed)', () => {
-        const result = getShadeCommand('Blind Tilt', { on: false });
-        expect(result).toEqual({
+      it('should send down;0 for closed down', () => {
+        expect(getShadeCommand('Blind Tilt', { on: false })).toEqual({
           command: 'setPosition',
           parameter: 'down;0',
         });
       });
 
-      it('should return setPosition with down;{brightness} for specific position', () => {
-        const result = getShadeCommand('Blind Tilt', { brightness: 25 });
-        expect(result).toEqual({
+      it('should send down;100 for open', () => {
+        expect(getShadeCommand('Blind Tilt', { brightness: 0 })).toEqual({
           command: 'setPosition',
-          parameter: 'down;25',
+          parameter: 'down;100',
         });
       });
 
-      it('should close to horizontal position (0)', () => {
-        const result = getShadeCommand('Blind Tilt', { on: false });
-        expect(result?.parameter).toBe('down;0');
+      it('should send up;0 for fully closed up', () => {
+        expect(getShadeCommand('Blind Tilt', { brightness: -100 })).toEqual({
+          command: 'setPosition',
+          parameter: 'up;0',
+        });
+      });
+
+      it('should send up;50 for half open up', () => {
+        expect(getShadeCommand('Blind Tilt', { brightness: -50 })).toEqual({
+          command: 'setPosition',
+          parameter: 'up;50',
+        });
       });
 
       it('should return null for empty state', () => {

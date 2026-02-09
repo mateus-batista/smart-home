@@ -19,6 +19,7 @@ const app = express();
 const server = createServer(app);
 const PORT = process.env.PORT || 3001;
 
+
 // Initialize polling manager (singleton)
 const pollingManager = new PollingManager();
 let wsBroadcaster: WebSocketBroadcaster;
@@ -53,6 +54,13 @@ app.put('/api/devices/:id', async (req, res) => {
       await hueService.setLightState(id, req.body);
     } else if (id.startsWith('switchbot-')) {
       await switchbotService.setDeviceState(id, req.body);
+      // Blind Tilt status API is unreliable — use optimistic state
+      if (req.body.brightness !== undefined) {
+        pollingManager.setOptimisticState(id, {
+          brightness: req.body.brightness,
+          on: req.body.brightness === 0,
+        });
+      }
     } else {
       await nanoleafService.setDeviceState(id, req.body);
     }

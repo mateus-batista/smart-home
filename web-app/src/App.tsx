@@ -307,6 +307,7 @@ function App() {
                       <Plus className="w-5 h-5 text-zinc-500" />
                       Add Device
                     </button>
+
                   </div>
                 </div>
               )}

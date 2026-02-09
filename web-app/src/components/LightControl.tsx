@@ -3,8 +3,8 @@ import type { Light, DeviceState } from '../types/devices';
 import { ColorPicker } from './ColorPicker';
 import { useNanoleafEffects } from '../hooks/useDevices';
 import { Modal, ModalHeader, ModalContent } from './ui/Modal';
-import { ToggleSwitch } from './ui/ToggleSwitch';
 import { Slider } from './ui/Slider';
+import { BulbControl } from './ui/BulbControl';
 
 interface LightControlProps {
   device: Light;
@@ -27,12 +27,6 @@ export function LightControl({ device, onUpdate, onClose, onToggleHidden }: Ligh
   // Determine device capabilities
   const supportsColor = device.capabilities?.color ?? false;
   const supportsColorTemp = device.capabilities?.colorTemp ?? false;
-
-  const handleToggle = () => {
-    const newOn = !localState.on;
-    setLocalState((prev) => ({ ...prev, on: newOn }));
-    onUpdate({ on: newOn });
-  };
 
   const handleBrightnessChange = (brightness: number) => {
     setLocalState((prev) => ({ ...prev, brightness }));
@@ -118,30 +112,34 @@ export function LightControl({ device, onUpdate, onClose, onToggleHidden }: Ligh
 
       {/* Controls */}
       <ModalContent>
-        {/* Power toggle */}
-        <div className="flex items-center justify-between">
-          <span className="text-lg font-medium">Power</span>
-          <ToggleSwitch
-            on={localState.on}
-            onChange={handleToggle}
+        {/* Bulb visualization (non-Nanoleaf lights) */}
+        {device.type !== 'nanoleaf' && (
+          <BulbControl
+            brightness={localState.brightness}
+            onBrightnessChange={(brightness) => {
+              setLocalState((prev) => ({ ...prev, brightness, on: brightness > 0 }));
+              onUpdate({ brightness, on: brightness > 0 });
+            }}
             disabled={!device.reachable}
-            size="lg"
+            color={localState.colorMode === 'hs' && localState.color ? localState.color : null}
           />
-        </div>
+        )}
 
-        {/* Brightness */}
-        <Slider
-          value={localState.brightness}
-          onChange={handleBrightnessChange}
-          onCommit={handleBrightnessCommit}
-          min={1}
-          max={100}
-          disabled={!device.reachable || !localState.on}
-          label="Brightness"
-          valueDisplay={`${localState.brightness}%`}
-          gradient="linear-gradient(to right, #27272a, #78716c, #fbbf24, #fef3c7)"
-          hints={{ start: 'Dim', end: 'Bright' }}
-        />
+        {/* Brightness slider (Nanoleaf only — panels, not bulbs) */}
+        {device.type === 'nanoleaf' && (
+          <Slider
+            value={localState.brightness}
+            onChange={handleBrightnessChange}
+            onCommit={handleBrightnessCommit}
+            min={1}
+            max={100}
+            disabled={!device.reachable || !localState.on}
+            label="Brightness"
+            valueDisplay={`${localState.brightness}%`}
+            gradient="linear-gradient(to right, #27272a, #78716c, #fbbf24, #fef3c7)"
+            hints={{ start: 'Dim', end: 'Bright' }}
+          />
+        )}
 
         {/* Color Temperature (for devices that support it) */}
         {supportsColorTemp && (

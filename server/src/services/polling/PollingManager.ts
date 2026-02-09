@@ -73,7 +73,15 @@ export class PollingManager {
    * Get all cached devices (enriched with DB data).
    */
   async getAllDevices(): Promise<LightWithRoomAndGroups[]> {
-    return await this.enrichDevices(this.cache.getAllDevices());
+    return this.enrichDevices(this.cache.getAllDevices());
+  }
+
+  /**
+   * Set optimistic state for a device after sending a command.
+   * Prevents stale poll data from overwriting the commanded state.
+   */
+  setOptimisticState(deviceId: string, state: Partial<Light['state']>): void {
+    this.cache.setOptimisticState(deviceId, state);
   }
 
   /**
