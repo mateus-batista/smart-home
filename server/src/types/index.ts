@@ -24,10 +24,14 @@ export interface NormalizedColor {
   brightness: number; // 0-100
 }
 
+// Blind Tilt positions
+export type TiltPosition = 'closed-up' | 'half-open' | 'open' | 'half-closed' | 'closed-down';
+
 // Normalized device state
 export interface DeviceState {
   on: boolean;
   brightness: number; // 0-100
+  tiltPosition?: TiltPosition; // Only for Blind Tilt devices
   color?: NormalizedColor;
   colorTemp?: number; // Kelvin
   colorMode?: 'hs' | 'ct' | 'effect';

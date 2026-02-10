@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { X } from 'lucide-react';
 import { useVoiceAssistant } from '../hooks/useVoiceAssistant';
 import type { VoiceAction } from '../hooks/useVoiceAssistant';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { StatusDot } from './ui/StatusDot';
 import { VoiceOrb } from './VoiceOrb';
 import { DynamicBackground } from './voice/DynamicBackground';
@@ -38,16 +39,7 @@ export function VoiceButton({ onAction, className = '' }: VoiceButtonProps) {
   });
 
   // Lock body scroll when modal is open
-  useEffect(() => {
-    if (showModal) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [showModal]);
+  useBodyScrollLock(showModal);
 
   // Toggle recording on/off
   const handleRecordToggle = useCallback(() => {
@@ -138,7 +130,8 @@ export function VoiceButton({ onAction, className = '' }: VoiceButtonProps) {
           {/* Close button */}
           <button
             onClick={handleCloseModal}
-            className="absolute top-4 right-4 z-20 p-3 rounded-full glass-pill hover:bg-white/10 transition-colors"
+            className="absolute top-4 right-4 z-20 p-3 rounded-full hover:bg-white/10 transition-colors"
+            style={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}
             style={{ top: 'calc(1rem + var(--safe-area-inset-top, 0px))' }}
           >
             <X className="w-6 h-6 text-zinc-400" />

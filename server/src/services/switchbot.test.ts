@@ -4,7 +4,8 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  getBlindTiltPosition,
+  parseTiltStatus,
+  TILT_COMMANDS,
   getShadeCommand,
   rgbToHsl,
   hslToRgb,
@@ -32,68 +33,73 @@ describe('SwitchBot Service', () => {
     });
   });
 
-  describe('getBlindTiltPosition', () => {
-    it('should map preset brightness values to fixed commands', () => {
-      expect(getBlindTiltPosition({ brightness: -100 })).toEqual({ direction: 'up', position: 0 });
-      expect(getBlindTiltPosition({ brightness: -50 })).toEqual({ direction: 'up', position: 50 });
-      expect(getBlindTiltPosition({ brightness: 0 })).toEqual({ direction: 'down', position: 100 });
-      expect(getBlindTiltPosition({ brightness: 50 })).toEqual({ direction: 'down', position: 33 });
-      expect(getBlindTiltPosition({ brightness: 100 })).toEqual({ direction: 'down', position: 0 });
+  describe('parseTiltStatus', () => {
+    it('should parse known API-reported positions', () => {
+      expect(parseTiltStatus('down', 0)).toBe('closed-down');
+      expect(parseTiltStatus('down', 16)).toBe('half-closed');
+      expect(parseTiltStatus('down', 50)).toBe('open');
+      expect(parseTiltStatus('up', 75)).toBe('half-open');
+      expect(parseTiltStatus('up', 100)).toBe('closed-up');
     });
 
-    it('should snap non-preset values to nearest preset', () => {
-      expect(getBlindTiltPosition({ brightness: 80 })).toEqual({ direction: 'down', position: 0 });
-      expect(getBlindTiltPosition({ brightness: 20 })).toEqual({ direction: 'down', position: 100 });
-      expect(getBlindTiltPosition({ brightness: -75 })).toEqual({ direction: 'up', position: 0 });
+    it('should snap nearby values to the closest position', () => {
+      // Down direction
+      expect(parseTiltStatus('down', 5)).toBe('closed-down');
+      expect(parseTiltStatus('down', 10)).toBe('half-closed');
+      expect(parseTiltStatus('down', 30)).toBe('half-closed');
+      expect(parseTiltStatus('down', 40)).toBe('open');
+      // Up direction
+      expect(parseTiltStatus('up', 80)).toBe('half-open');
+      expect(parseTiltStatus('up', 95)).toBe('closed-up');
     });
+  });
 
-    it('should return open when on=true', () => {
-      expect(getBlindTiltPosition({ on: true })).toEqual({ direction: 'down', position: 100 });
-    });
-
-    it('should return closed down when on=false', () => {
-      expect(getBlindTiltPosition({ on: false })).toEqual({ direction: 'down', position: 0 });
-    });
-
-    it('should return null for empty state', () => {
-      expect(getBlindTiltPosition({})).toBeNull();
+  describe('TILT_COMMANDS', () => {
+    it('should have commands for all 5 positions', () => {
+      expect(TILT_COMMANDS['closed-up']).toBe('up;0');
+      expect(TILT_COMMANDS['half-open']).toBe('up;50');
+      expect(TILT_COMMANDS['open']).toBe('down;100');
+      expect(TILT_COMMANDS['half-closed']).toBe('down;33');
+      expect(TILT_COMMANDS['closed-down']).toBe('down;0');
     });
   });
 
   describe('getShadeCommand', () => {
     describe('Blind Tilt', () => {
-      it('should send down;100 for open', () => {
+      it('should send correct command for each tilt position', () => {
+        expect(getShadeCommand('Blind Tilt', { tiltPosition: 'open' })).toEqual({
+          command: 'setPosition',
+          parameter: 'down;100',
+        });
+        expect(getShadeCommand('Blind Tilt', { tiltPosition: 'closed-down' })).toEqual({
+          command: 'setPosition',
+          parameter: 'down;0',
+        });
+        expect(getShadeCommand('Blind Tilt', { tiltPosition: 'closed-up' })).toEqual({
+          command: 'setPosition',
+          parameter: 'up;0',
+        });
+        expect(getShadeCommand('Blind Tilt', { tiltPosition: 'half-open' })).toEqual({
+          command: 'setPosition',
+          parameter: 'up;50',
+        });
+        expect(getShadeCommand('Blind Tilt', { tiltPosition: 'half-closed' })).toEqual({
+          command: 'setPosition',
+          parameter: 'down;33',
+        });
+      });
+
+      it('should send open for on=true', () => {
         expect(getShadeCommand('Blind Tilt', { on: true })).toEqual({
           command: 'setPosition',
           parameter: 'down;100',
         });
       });
 
-      it('should send down;0 for closed down', () => {
+      it('should send closed-down for on=false', () => {
         expect(getShadeCommand('Blind Tilt', { on: false })).toEqual({
           command: 'setPosition',
           parameter: 'down;0',
-        });
-      });
-
-      it('should send down;100 for open', () => {
-        expect(getShadeCommand('Blind Tilt', { brightness: 0 })).toEqual({
-          command: 'setPosition',
-          parameter: 'down;100',
-        });
-      });
-
-      it('should send up;0 for fully closed up', () => {
-        expect(getShadeCommand('Blind Tilt', { brightness: -100 })).toEqual({
-          command: 'setPosition',
-          parameter: 'up;0',
-        });
-      });
-
-      it('should send up;50 for half open up', () => {
-        expect(getShadeCommand('Blind Tilt', { brightness: -50 })).toEqual({
-          command: 'setPosition',
-          parameter: 'up;50',
         });
       });
 
@@ -260,7 +266,7 @@ describe('SwitchBot Service', () => {
         const original = { r: 100, g: 150, b: 200 };
         const hsl = rgbToHsl(original.r, original.g, original.b);
         const converted = hslToRgb(hsl.hue, hsl.saturation, hsl.brightness);
-        
+
         // Allow small rounding differences
         expect(Math.abs(converted.r - original.r)).toBeLessThanOrEqual(2);
         expect(Math.abs(converted.g - original.g)).toBeLessThanOrEqual(2);

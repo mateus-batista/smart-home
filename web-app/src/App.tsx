@@ -11,6 +11,7 @@ import { GroupManager } from './components/GroupManager';
 import { RoomManager } from './components/RoomManager';
 import { DeviceRoomAssigner } from './components/DeviceRoomAssigner';
 import { VoiceButton } from './components/VoiceButton';
+import { SplashScreen } from './components/SplashScreen';
 import type { Light } from './types/devices';
 import { isShadeDevice } from './types/devices';
 
@@ -43,6 +44,7 @@ function App() {
   const [showRoomManager, setShowRoomManager] = useState(false);
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
   const [deviceToAssignRoom, setDeviceToAssignRoom] = useState<Light | null>(null);
+  const [showSplash, setShowSplash] = useState(() => (navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches);
   const [showHidden, setShowHidden] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -156,7 +158,9 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950">
+    <div className="min-h-screen">
+      {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
+
       {/* Setup Wizard */}
       {showSetup && status && (
         <SetupWizard
@@ -231,7 +235,7 @@ function App() {
       )}
 
       {/* Header */}
-      <header className="sticky top-0 z-10 glass-surface border-b-0 backdrop-blur-xl">
+      <header className="sticky top-[var(--safe-area-inset-top)] z-10 glass-surface border-b-0 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Logo */}

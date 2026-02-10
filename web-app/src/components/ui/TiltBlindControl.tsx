@@ -1,46 +1,31 @@
 import { useMemo } from 'react';
+import type { TiltPosition } from '../../types/devices';
+import { TILT_LABELS, TILT_POSITION_ORDER } from '../../utils/shadeHelpers';
 
 interface TiltBlindControlProps {
-  position: number;
-  onPositionChange: (position: number) => void;
+  position: TiltPosition;
+  onPositionChange: (position: TiltPosition) => void;
   disabled?: boolean;
 }
-
-const ZONES = [
-  { value: -100, label: 'Closed Up' },
-  { value: -50, label: 'Half Open' },
-  { value: 0, label: 'Open' },
-  { value: 50, label: 'Half Closed' },
-  { value: 100, label: 'Closed Down' },
-];
 
 const SLAT_COUNT = 18;
 const TRANSITION = 'all 1.4s cubic-bezier(0.22, 1, 0.36, 1)';
 
-function getActiveZone(position: number): number {
-  let closest = ZONES[0].value;
-  let minDist = Math.abs(position - closest);
-  for (const zone of ZONES) {
-    const dist = Math.abs(position - zone.value);
-    if (dist < minDist) {
-      minDist = dist;
-      closest = zone.value;
-    }
-  }
-  return closest;
-}
+const SLAT_ANGLES: Record<TiltPosition, number> = {
+  'closed-up': 40,
+  'half-open': 20,
+  'open': 0,
+  'half-closed': -20,
+  'closed-down': -40,
+};
 
-function getSlatAngle(value: number): number {
-  // -100 = closed up → +40°
-  //    0 = open (horizontal) → 0°
-  // +100 = closed down → -40°
-  return -(value / 100) * 40;
-}
-
-function getStatusLabel(activeValue: number): string {
-  const zone = ZONES.find((z) => z.value === activeValue);
-  return zone?.label ?? `${activeValue}%`;
-}
+const OPENNESS: Record<TiltPosition, number> = {
+  'closed-up': 0,
+  'half-open': 0.5,
+  'open': 1,
+  'half-closed': 0.5,
+  'closed-down': 0,
+};
 
 /** Sun or moon position based on current time of day */
 function useCelestial() {
@@ -77,10 +62,8 @@ export function TiltBlindControl({
   onPositionChange,
   disabled = false,
 }: TiltBlindControlProps) {
-  const activeValue = getActiveZone(position);
-  const angle = getSlatAngle(activeValue);
-  // Openness peaks at 0 (horizontal), falls to 0 at both extremes
-  const openness = 1 - Math.abs(activeValue) / 100;
+  const angle = SLAT_ANGLES[position];
+  const openness = OPENNESS[position];
   const { isDay, x: sunX, y: sunY } = useCelestial();
 
   const skyTopL = isDay ? 18 + openness * 32 : 6 + openness * 10;
@@ -269,13 +252,13 @@ export function TiltBlindControl({
 
               {/* ── Invisible tap zones ── */}
               <div className="absolute inset-0 flex flex-col z-20">
-                {ZONES.map((zone) => (
+                {TILT_POSITION_ORDER.map((pos) => (
                   <button
-                    key={zone.value}
-                    onClick={() => !disabled && onPositionChange(zone.value)}
+                    key={pos}
+                    onClick={() => !disabled && onPositionChange(pos)}
                     disabled={disabled}
                     className={`flex-1 ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'} ${
-                      zone.value !== activeValue ? 'hover:bg-white/[0.04]' : ''
+                      pos !== position ? 'hover:bg-white/[0.04]' : ''
                     }`}
                   />
                 ))}
@@ -286,7 +269,7 @@ export function TiltBlindControl({
                 className="absolute right-0 w-1 rounded-l z-20"
                 style={{
                   transition: TRANSITION,
-                  top: `${((activeValue + 100) / 200) * 80 + 10}%`,
+                  top: `${(TILT_POSITION_ORDER.indexOf(position) / (TILT_POSITION_ORDER.length - 1)) * 80 + 10}%`,
                   height: '12px',
                   transform: 'translateY(-50%)',
                   background: 'linear-gradient(180deg, #38bdf8, #0ea5e9)',
@@ -312,7 +295,7 @@ export function TiltBlindControl({
       </div>
 
       {/* Status label */}
-      <p className="text-sm text-zinc-400">{getStatusLabel(activeValue)}</p>
+      <p className="text-sm text-zinc-400">{TILT_LABELS[position]}</p>
     </div>
   );
 }

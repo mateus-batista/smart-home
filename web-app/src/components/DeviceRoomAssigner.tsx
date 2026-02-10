@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Room, Light } from '../types/devices';
 import { getRoomIcon } from '../utils/rooms';
+import { Modal } from './ui/Modal';
 import { CloseButton } from './ui/CloseButton';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import { EmptyState, EmptyStateIcons } from './ui/EmptyState';
@@ -50,16 +51,9 @@ export function DeviceRoomAssigner({
   const availableRooms = rooms.filter((room) => room.id !== device.roomId);
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4"
-      onClick={onClose}
-    >
-      <div
-        className="glass-surface w-full sm:max-w-sm sm:rounded-3xl rounded-t-3xl overflow-hidden max-h-[90vh] sm:max-h-[85vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal onClose={onClose} maxWidth="max-w-sm" contentClassName="sm:max-h-[85vh]">
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-white/[0.06] flex items-center justify-between shrink-0">
+        <div className="p-4 pt-[max(1rem,env(safe-area-inset-top))] sm:p-5 border-b border-white/[0.06] flex items-center justify-between shrink-0">
           <div className="min-w-0">
             <h2 className="text-lg font-semibold text-white truncate">{device.name}</h2>
             <p className="text-xs text-zinc-500">
@@ -147,7 +141,6 @@ export function DeviceRoomAssigner({
             Cancel
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

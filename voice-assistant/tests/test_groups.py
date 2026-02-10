@@ -141,15 +141,7 @@ class TestControlGroup:
         ):
             mock_cache.return_value = mock_groups
 
-            # Mock group state endpoint response
             mock_response = MagicMock()
-            mock_response.json.return_value = {
-                "success": True,
-                "results": [
-                    {"device": "Kitchen Light", "success": True},
-                    {"device": "Living Room Light", "success": True},
-                ],
-            }
             mock_response.raise_for_status = MagicMock()
 
             mock_client = AsyncMock()
@@ -163,11 +155,10 @@ class TestControlGroup:
             assert "on" in result["action"]
             assert result["devices_controlled"] == 2
 
-            # Verify group state API was called
-            mock_client.put.assert_called_once()
-            call_args = mock_client.put.call_args
-            assert "/groups/group-1/state" in call_args[0][0]
-            assert call_args[1]["json"]["on"] is True
+            # Verify each device was controlled individually
+            assert mock_client.put.call_count == 2
+            for call in mock_client.put.call_args_list:
+                assert call[1]["json"]["on"] is True
 
     @pytest.mark.asyncio
     async def test_control_group_turn_off(self, mock_groups):
@@ -277,7 +268,7 @@ class TestControlGroup:
 
     @pytest.mark.asyncio
     async def test_control_group_http_error(self, mock_groups):
-        """Should handle HTTP errors."""
+        """Should handle HTTP errors for individual devices."""
         import httpx
 
         with (
@@ -292,5 +283,6 @@ class TestControlGroup:
 
             result = await control_group("All Lights", on=True)
 
+            # All individual device calls fail
             assert result["success"] is False
-            assert "error" in result
+            assert result["devices_controlled"] == 0

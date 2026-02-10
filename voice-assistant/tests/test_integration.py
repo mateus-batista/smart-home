@@ -232,7 +232,7 @@ class TestVoiceToDeviceAction:
     async def test_control_group(self, mock_groups):
         """
         Test: "Turn on movie mode"
-        Expected: Group state endpoint called with on=True
+        Expected: Each device in group controlled individually
         """
         from belle.tools.groups import _group_cache, control_group
 
@@ -245,9 +245,6 @@ class TestVoiceToDeviceAction:
             mock_cache.return_value = mock_groups
 
             mock_response = MagicMock()
-            mock_response.json.return_value = {
-                "results": [{"device": "Living Room Lamp", "success": True}]
-            }
             mock_response.raise_for_status = MagicMock()
             mock_http_client = AsyncMock()
             mock_http_client.put = AsyncMock(return_value=mock_response)
@@ -258,9 +255,10 @@ class TestVoiceToDeviceAction:
             assert result["success"] is True
             assert result["group"] == "Movie Mode"
 
-            # Verify group state API was called
+            # Verify device was controlled individually
+            mock_http_client.put.assert_called_once()
             call_args = mock_http_client.put.call_args
-            assert "/groups/group-2/state" in call_args[0][0]
+            assert call_args[1]["json"]["on"] is True
 
 
 class TestChatToDeviceAction:
@@ -369,6 +367,7 @@ class TestVoicePipelineToDeviceAction:
         audio_b64 = create_test_audio()
 
         with (
+            patch("belle.main.is_silent_audio", return_value=False),
             patch("belle.main.transcribe_audio_async", new_callable=AsyncMock) as mock_stt,
             patch("belle.main.chat_async", new_callable=AsyncMock) as mock_chat,
             patch("belle.main.settings") as mock_settings,
@@ -410,6 +409,7 @@ class TestVoicePipelineToDeviceAction:
         audio_b64 = create_test_audio()
 
         with (
+            patch("belle.main.is_silent_audio", return_value=False),
             patch("belle.main.transcribe_audio_async", new_callable=AsyncMock) as mock_stt,
             patch("belle.main.chat_async", new_callable=AsyncMock) as mock_chat,
             patch("belle.main.settings") as mock_settings,
@@ -566,7 +566,10 @@ class TestErrorHandling:
         """Should handle transcription errors."""
         audio_b64 = create_test_audio()
 
-        with patch("belle.main.transcribe_audio_async", new_callable=AsyncMock) as mock_stt:
+        with (
+            patch("belle.main.is_silent_audio", return_value=False),
+            patch("belle.main.transcribe_audio_async", new_callable=AsyncMock) as mock_stt,
+        ):
             mock_stt.side_effect = Exception("Model not loaded")
 
             response = client.post("/voice", json={"audio": audio_b64, "format": "wav"})

@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 
 from belle.http import SmartCache, find_by_name, get_client, get_close_matches_for_name
+from belle.tools.rooms import SHADE_DEVICE_TYPES
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ GROUP_TOOLS = [
         "type": "function",
         "function": {
             "name": "control_group",
-            "description": "Control all devices in a custom group at once.",
+            "description": "Control all LIGHTS in a custom group at once. This does NOT control shades/blinds/curtains — only use control_shade or control_room_shades for those, and ONLY when the user explicitly mentions them.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -158,12 +159,40 @@ async def control_group(
         if not state_update:
             return {"success": False, "error": "No state changes specified"}
 
-        # Use the group state endpoint
-        group_id = group.get("id")
+        # Filter out shade devices — only control lights
+        all_devices = group.get("devices", [])
+        light_devices = [
+            d for d in all_devices
+            if not _is_shade_device(d.get("device", d))
+        ]
+
+        if not light_devices:
+            return {
+                "success": True,
+                "group": group.get("name"),
+                "message": "Group has no light devices (only shades/blinds)",
+                "devices_controlled": 0,
+            }
+
+        # Control each light device individually (skipping shades)
         client = await get_client()
-        response = await client.put(f"/groups/{group_id}/state", json=state_update)
-        response.raise_for_status()
-        result = response.json()
+        results = []
+        logger.info(f"Controlling {len(light_devices)} lights in group '{group.get('name')}' with state: {state_update}")
+
+        for membership in light_devices:
+            device = membership.get("device", membership)
+            device_id = device.get("externalId") or device.get("id")
+            device_name = device.get("name")
+            try:
+                response = await client.put(f"/devices/{device_id}", json=state_update)
+                response.raise_for_status()
+                results.append({"device": device_name, "success": True})
+            except httpx.HTTPStatusError as e:
+                logger.error(f"HTTP error for '{device_name}': {e.response.status_code}")
+                results.append({"device": device_name, "success": False, "error": str(e)})
+            except httpx.HTTPError as e:
+                logger.error(f"Error for '{device_name}': {e}")
+                results.append({"device": device_name, "success": False, "error": str(e)})
 
         # Clear cache
         _group_cache.clear()
@@ -176,8 +205,6 @@ async def control_group(
         if "colorTemp" in state_update:
             action_desc.append(f"color temp {state_update['colorTemp']}K")
 
-        # Parse results
-        results = result.get("results", [])
         success_count = sum(1 for r in results if r.get("success"))
 
         return {
@@ -185,13 +212,22 @@ async def control_group(
             "group": group.get("name"),
             "action": ", ".join(action_desc),
             "devices_controlled": success_count,
-            "total_devices": len(group.get("devices", [])),
+            "total_devices": len(light_devices),
             "results": results,
         }
 
     except httpx.HTTPError as e:
         logger.error(f"Failed to control group: {e}")
         return {"success": False, "error": str(e)}
+
+
+def _is_shade_device(device: dict) -> bool:
+    """Check if a device is a shade/curtain/blind."""
+    device_type = device.get("deviceType") or device.get("type")
+    if device_type in SHADE_DEVICE_TYPES:
+        return True
+    name_lower = (device.get("name") or "").lower()
+    return any(kw in name_lower for kw in ["shade", "curtain", "blind", "persiana", "cortina"])
 
 
 # Map tool names to functions

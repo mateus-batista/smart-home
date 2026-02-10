@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import type { Light, DeviceState } from '../types/devices';
+import type { Light, DeviceState, TiltPosition } from '../types/devices';
 import { Modal, ModalHeader, ModalContent } from './ui/Modal';
 import { Slider } from './ui/Slider';
 import { ShadeVisual } from './ui/ShadeVisual';
-import { getVisualOpenness } from '../utils/shadeHelpers';
+import { TILT_LABELS } from '../utils/shadeHelpers';
 import { ShadeOpenCloseButtons } from './ui/ShadeOpenCloseButtons';
 import { TiltBlindControl } from './ui/TiltBlindControl';
+import { HideDeviceButton } from './ui/HideDeviceButton';
 
 interface ShadeControlProps {
   device: Light;
@@ -14,17 +15,21 @@ interface ShadeControlProps {
   onToggleHidden?: (hidden: boolean) => void;
 }
 
-// Check if device is a Blind Tilt type
-function isBlindTilt(device: Light): boolean {
-  return device.deviceType === 'Blind Tilt';
-}
-
 export function ShadeControl({ device, onUpdate, onClose, onToggleHidden }: ShadeControlProps) {
-  // Position: brightness maps to openness (100 = fully open, 0 = closed)
-  // For Blind Tilt: 50 = fully open (horizontal slats)
+  const isTilt = device.deviceType === 'Blind Tilt';
+
+  // Tilt state
+  const [localTiltPosition, setLocalTiltPosition] = useState<TiltPosition>(
+    device.state.tiltPosition ?? 'open'
+  );
+
+  // Regular shade state
   const [localPosition, setLocalPosition] = useState(device.state.brightness);
-  const isTilt = isBlindTilt(device);
-  const visualOpenness = getVisualOpenness(localPosition, isTilt);
+
+  const handleTiltChange = (position: TiltPosition) => {
+    setLocalTiltPosition(position);
+    onUpdate({ tiltPosition: position, on: position === 'open' });
+  };
 
   const handlePositionChange = (position: number) => {
     setLocalPosition(position);
@@ -40,16 +45,23 @@ export function ShadeControl({ device, onUpdate, onClose, onToggleHidden }: Shad
   };
 
   const handleOpen = () => {
-    handlePreset(100);
+    if (isTilt) {
+      handleTiltChange('open');
+    } else {
+      handlePreset(100);
+    }
   };
 
   const handleClose = () => {
-    handlePreset(0);
+    if (isTilt) {
+      handleTiltChange('closed-down');
+    } else {
+      handlePreset(0);
+    }
   };
 
   const getPreviewStyle = () => {
-    // Sky blue gradient based on visual openness
-    const openness = visualOpenness / 100;
+    const openness = localPosition / 100;
     const skyBlue = `hsl(210, ${60 + openness * 20}%, ${20 + openness * 30}%)`;
     return {
       backgroundColor: skyBlue,
@@ -59,12 +71,7 @@ export function ShadeControl({ device, onUpdate, onClose, onToggleHidden }: Shad
 
   const getStatusText = () => {
     if (isTilt) {
-      // Blind Tilt: -100 = closed up, 0 = open, +100 = closed down
-      if (localPosition <= -75) return 'Closed Up';
-      if (localPosition <= -25) return 'Half Open';
-      if (localPosition <= 25) return 'Open';
-      if (localPosition <= 75) return 'Half Closed';
-      return 'Closed Down';
+      return TILT_LABELS[localTiltPosition];
     }
     if (localPosition >= 100) return 'Fully Open';
     if (localPosition <= 0) return 'Fully Closed';
@@ -98,8 +105,8 @@ export function ShadeControl({ device, onUpdate, onClose, onToggleHidden }: Shad
         {isTilt ? (
           /* Tilt blind: interactive visual control */
           <TiltBlindControl
-            position={localPosition}
-            onPositionChange={handlePreset}
+            position={localTiltPosition}
+            onPositionChange={handleTiltChange}
             disabled={!device.reachable}
           />
         ) : (
@@ -134,7 +141,7 @@ export function ShadeControl({ device, onUpdate, onClose, onToggleHidden }: Shad
 
             {/* Open/Close buttons */}
             <ShadeOpenCloseButtons
-              visualOpenness={visualOpenness}
+              visualOpenness={localPosition}
               onOpen={handleOpen}
               onClose={handleClose}
               disabled={!device.reachable}
@@ -150,7 +157,7 @@ export function ShadeControl({ device, onUpdate, onClose, onToggleHidden }: Shad
               max={100}
               disabled={!device.reachable}
               label="Position"
-              valueDisplay={`${visualOpenness}% open`}
+              valueDisplay={`${localPosition}% open`}
               gradient="linear-gradient(to right, #374151, #3b82f6, #87ceeb)"
               hints={{ start: 'Closed', end: 'Open' }}
             />
@@ -159,33 +166,7 @@ export function ShadeControl({ device, onUpdate, onClose, onToggleHidden }: Shad
 
         {/* Hide device option */}
         {onToggleHidden && (
-          <div className="pt-4 border-t border-white/[0.06]">
-            <button
-              onClick={handleToggleHidden}
-              className={`w-full py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all ${
-                device.hidden
-                  ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
-                  : 'glass-pill text-zinc-400 hover:bg-white/10 hover:text-zinc-300'
-              }`}
-            >
-              {device.hidden ? (
-                <>
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                  Show Device
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                  </svg>
-                  Hide Device
-                </>
-              )}
-            </button>
-          </div>
+          <HideDeviceButton hidden={!!device.hidden} onClick={handleToggleHidden} />
         )}
       </ModalContent>
     </Modal>

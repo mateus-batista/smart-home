@@ -1,13 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Check, X, Pencil, Plus, Trash2, Search, Sun, Layers, Ban } from 'lucide-react';
-import type { DeviceGroup, Room, Light } from '../types/devices';
+import { ChevronLeft, ChevronRight, Check, X, Pencil, Plus, Trash2, Sun, Layers, Ban } from 'lucide-react';
+import type { DeviceGroup, Room, Light, TiltPosition } from '../types/devices';
 import { isShadeDevice, getGroupType, canAddDeviceToGroup } from '../types/devices';
+import { Modal } from './ui/Modal';
 import { CloseButton } from './ui/CloseButton';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import { EmptyState, EmptyStateIcons } from './ui/EmptyState';
 import { StatusDot } from './ui/StatusDot';
 import { ShadeOpenCloseButtons } from './ui/ShadeOpenCloseButtons';
 import { Slider } from './ui/Slider';
+import { SearchInput } from './ui/SearchInput';
 import { LightControl } from './LightControl';
 import { ShadeControl } from './ShadeControl';
 import { TiltBlindControl } from './ui/TiltBlindControl';
@@ -23,7 +25,7 @@ interface GroupManagerProps {
   onAddDeviceToGroup: (groupId: string, deviceExternalId: string) => Promise<void>;
   onRemoveDeviceFromGroup: (groupId: string, deviceExternalId: string) => Promise<void>;
   onUpdateDevice: (deviceId: string, state: Partial<Light['state']>) => Promise<void>;
-  onSetGroupState: (groupId: string, state: { on?: boolean; brightness?: number }) => Promise<unknown>;
+  onSetGroupState: (groupId: string, state: Partial<Light['state']>) => Promise<unknown>;
   onClose: () => void;
   initialGroupId?: string | null;
 }
@@ -79,7 +81,7 @@ export function GroupManager({
   // Derive group state from actual devices
   const groupState = useMemo(() => {
     if (groupDevices.length === 0) {
-      return { isOn: false, anyOn: false, brightness: 0 };
+      return { isOn: false, anyOn: false, brightness: 0, tiltPosition: 'open' as TiltPosition };
     }
 
     const onDevices = groupDevices.filter(d => d.state.on && d.reachable);
@@ -89,7 +91,12 @@ export function GroupManager({
       ? Math.round(reachableDevices.reduce((sum, d) => sum + d.state.brightness, 0) / reachableDevices.length)
       : 0;
 
-    return { isOn: anyOn, anyOn, brightness: avgBrightness };
+    // For tilt groups, use the most common tilt position
+    const tiltPosition: TiltPosition = reachableDevices.length > 0
+      ? (reachableDevices[0]?.state.tiltPosition ?? 'open')
+      : 'open';
+
+    return { isOn: anyOn, anyOn, brightness: avgBrightness, tiltPosition };
   }, [groupDevices]);
 
   // Filter devices by search
@@ -207,11 +214,11 @@ export function GroupManager({
     }
   };
 
-  const handleTiltGroupPosition = async (position: number) => {
+  const handleTiltGroupPosition = async (position: TiltPosition) => {
     if (!selectedGroupId) return;
     setIsGroupControlling(true);
     try {
-      await onSetGroupState(selectedGroupId, { brightness: position });
+      await onSetGroupState(selectedGroupId, { tiltPosition: position, on: position === 'open' });
     } finally {
       setTimeout(() => setIsGroupControlling(false), 500);
     }
@@ -220,10 +227,9 @@ export function GroupManager({
   const displayGroupBrightness = pendingGroupBrightness ?? groupState.brightness;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4">
-      <div className="glass-surface w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-2xl sm:rounded-3xl rounded-t-3xl overflow-hidden flex flex-col">
+    <Modal onClose={onClose} maxWidth="max-w-2xl" contentClassName="sm:max-h-[85vh]">
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-white/[0.06] flex items-center justify-between shrink-0">
+        <div className="p-4 pt-[max(1rem,env(safe-area-inset-top))] sm:p-5 border-b border-white/[0.06] flex items-center justify-between shrink-0">
           <div className="min-w-0 flex items-center gap-3">
             {/* Show back arrow only when navigating from list (not opened directly) */}
             {viewMode === 'edit' && !initialGroupId && (
@@ -455,7 +461,7 @@ export function GroupManager({
                 <div className={`px-4 sm:px-5 py-4 ${isTiltGroup ? '' : 'space-y-5'} border-b border-white/[0.06] shrink-0 bg-white/[0.03]`}>
                   {isTiltGroup ? (
                     <TiltBlindControl
-                      position={displayGroupBrightness}
+                      position={groupState.tiltPosition}
                       onPositionChange={handleTiltGroupPosition}
                       disabled={isGroupControlling}
                     />
@@ -575,18 +581,7 @@ export function GroupManager({
               {editTab === 'devices' && (
                 <>
                   {/* Search */}
-                  <div className="p-3 border-b border-white/[0.06] shrink-0">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search..."
-                        className="w-full py-2 pl-9 pr-3 bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-white placeholder-zinc-500 outline-none focus:border-zinc-500 transition-all"
-                      />
-                    </div>
-                  </div>
+                  <SearchInput value={searchQuery} onChange={setSearchQuery} />
 
                   {/* Group type indicator */}
                   {groupDevices.length > 0 && (
@@ -681,7 +676,6 @@ export function GroupManager({
             </div>
           )}
         </div>
-      </div>
 
       {/* Device Control Modals */}
       {selectedDevice && !isShadeDevice(selectedDevice) && (
@@ -699,6 +693,6 @@ export function GroupManager({
           onClose={() => setSelectedDevice(null)}
         />
       )}
-    </div>
+    </Modal>
   );
 }

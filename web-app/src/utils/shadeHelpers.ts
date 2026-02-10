@@ -1,9 +1,21 @@
-/** Get visual openness for display purposes */
-export function getVisualOpenness(position: number, isBlindTilt = false): number {
-  if (isBlindTilt) {
-    // Blind Tilt: -100 = closed up, 0 = open, +100 = closed down
-    return Math.max(0, 100 - Math.abs(position));
-  }
-  // Regular shades: 0 = closed, 100 = fully open
-  return position;
-}
+import type { TiltPosition } from '../types/devices';
+
+export const TILT_LABELS: Record<TiltPosition, string> = {
+  'closed-up': 'Closed Up',
+  'half-open': 'Half Open',
+  'open': 'Open',
+  'half-closed': 'Half Closed',
+  'closed-down': 'Closed Down',
+};
+
+export const TILT_VISUAL_OPENNESS: Record<TiltPosition, number> = {
+  'closed-up': 0,
+  'half-open': 50,
+  'open': 100,
+  'half-closed': 50,
+  'closed-down': 0,
+};
+
+export const TILT_POSITION_ORDER: TiltPosition[] = [
+  'closed-up', 'half-open', 'open', 'half-closed', 'closed-down',
+];

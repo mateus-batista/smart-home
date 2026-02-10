@@ -13,16 +13,24 @@ function useFadingText(text: string, timeout: number) {
   const [visible, setVisible] = useState(false);
   const [displayText, setDisplayText] = useState('');
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (text) {
+      // Cancel any pending clear
+      if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
       setDisplayText(text);
       setVisible(true);
       if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setVisible(false), timeout);
+      timerRef.current = setTimeout(() => {
+        setVisible(false);
+        // Clear displayText after fade-out animation completes
+        clearTimerRef.current = setTimeout(() => setDisplayText(''), 500);
+      }, timeout);
     }
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
+      if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
     };
   }, [text, timeout]);
 
@@ -53,39 +61,33 @@ export function ConversationOverlay({ transcript, response, actions, error }: Co
       {/* Transcript — above orb area */}
       <div className="absolute top-[20%] w-full flex justify-center px-4">
         <div
-          className={`rounded-2xl px-5 py-3 max-w-[400px] w-[90vw] text-center transition-all duration-500 ${
+          className={`glass-card rounded-2xl px-5 py-3 max-w-[400px] w-[90vw] transition-all duration-500 ${
             showTranscript ? 'animate-float-in-up' : 'animate-float-out'
           }`}
           style={{
             opacity: showTranscript || transcriptText ? undefined : 0,
             visibility: transcriptText ? 'visible' : 'hidden',
-            background: 'linear-gradient(135deg, rgba(30,30,35,0.82) 0%, rgba(20,20,24,0.78) 100%)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255,255,255,0.1)',
           }}
         >
-          <p className="text-sm text-zinc-200">{transcriptText}</p>
+          <p className="text-sm text-zinc-300 text-left">{transcriptText}</p>
         </div>
       </div>
 
       {/* Response — below orb area */}
       <div className="absolute top-[68%] w-full flex flex-col items-center gap-3 px-4">
         <div
-          className={`rounded-2xl px-5 py-3 max-w-[400px] w-[90vw] text-center transition-all duration-500 ${
+          className={`glass-card rounded-2xl px-5 py-3 max-w-[400px] w-[90vw] transition-all duration-500 ${
             showResponse ? 'animate-float-in-up' : 'animate-float-out'
           }`}
           style={{
             opacity: showResponse || responseText ? undefined : 0,
             visibility: responseText ? 'visible' : 'hidden',
-            background: 'linear-gradient(135deg, rgba(30,30,35,0.85) 0%, rgba(255,221,15,0.08) 50%, rgba(20,20,24,0.80) 100%)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255,255,255,0.1)',
+            borderLeftColor: 'rgba(212,160,84,0.4)',
+            borderLeftWidth: '2px',
             animationDelay: '0.2s',
           }}
         >
-          <p className="text-sm text-zinc-200">{responseText}</p>
+          <p className="text-sm text-zinc-200 text-left font-medium">{responseText}</p>
         </div>
 
         {/* Actions */}

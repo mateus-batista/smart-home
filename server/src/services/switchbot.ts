@@ -7,10 +7,11 @@
 import axios from 'axios';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
-import type { 
-  Light, 
-  DeviceState, 
-  SwitchBotDevice, 
+import type {
+  Light,
+  DeviceState,
+  TiltPosition,
+  SwitchBotDevice,
   SwitchBotDeviceStatus,
   SwitchBotDeviceList 
 } from '../types/index.js';
@@ -147,25 +148,20 @@ function switchBotToLight(device: SwitchBotDevice, status?: SwitchBotDeviceStatu
     let openness: number;
     
     if (device.deviceType === 'Blind Tilt') {
-      // Blind Tilt: map status back to nearest preset brightness
-      // Status is unreliable, but do our best: 0 = closed, 100 = open
       const direction = (status?.direction ?? 'down').toLowerCase();
-      if (direction === 'up') {
-        // up: position 0 = closed up (-100), position 50 = half open (-50), 100 = open (0)
-        openness = position <= 25 ? -100 : position <= 75 ? -50 : 0;
-      } else {
-        // down: position 0 = closed down (100), position 33 = half closed (50), 100 = open (0)
-        openness = position <= 16 ? 100 : position <= 50 ? 50 : 0;
-      }
+      const tiltPosition = parseTiltStatus(direction, position);
+      state = {
+        on: tiltPosition === 'open',
+        brightness: 0,
+        tiltPosition,
+      };
     } else {
       // Curtain/Roller Shade: slidePosition 0 = closed, 100 = fully open
-      openness = position;
+      state = {
+        on: position > 0,
+        brightness: position,
+      };
     }
-
-    state = {
-      on: device.deviceType === 'Blind Tilt' ? openness === 0 : openness > 0,
-      brightness: openness,
-    };
   } else if (isLight && status) {
     state = {
       on: status.power === 'on',
@@ -292,42 +288,33 @@ async function setPlugState(deviceId: string, state: Partial<DeviceState>): Prom
 }
 
 /**
- * Blind Tilt preset commands.
- * SwitchBot API: direction;position where 0 = fully closed, 100 = fully open.
+ * Blind Tilt: 5 discrete positions.
  *
- * Presets (keyed by brightness value used in frontend):
- *   -100 → up;0    (Closed Up)
- *    -50 → up;50   (Half Open upward)
- *      0 → down;100 (Open / horizontal)
- *     50 → down;33  (Half Closed downward)
- *    100 → down;0   (Closed Down)
+ * position     | command (send) | API reports (direction, slidePosition)
+ * -------------|----------------|---------------------------------------
+ * closed-up    | up;0           | Up, 100
+ * half-open    | up;50          | Up, 75
+ * open         | down;100       | Down, 50
+ * half-closed  | down;33        | Down, 16
+ * closed-down  | down;0         | Down, 0
  */
-export const BLIND_TILT_PRESETS: Record<number, { direction: string; position: number }> = {
-  [-100]: { direction: 'up', position: 0 },
-  [-50]:  { direction: 'up', position: 50 },
-  [0]:    { direction: 'down', position: 100 },
-  [50]:   { direction: 'down', position: 33 },
-  [100]:  { direction: 'down', position: 0 },
+export const TILT_COMMANDS: Record<TiltPosition, string> = {
+  'closed-up':   'up;0',
+  'half-open':   'up;50',
+  'open':        'down;100',
+  'half-closed': 'down;33',
+  'closed-down': 'down;0',
 };
 
-/**
- * Get the command for a Blind Tilt device based on brightness preset.
- */
-export function getBlindTiltPosition(state: Partial<DeviceState>): { direction: string; position: number } | null {
-  if (state.brightness !== undefined) {
-    const preset = BLIND_TILT_PRESETS[state.brightness];
-    if (preset) return preset;
-    // For non-preset values, find the nearest preset
-    const presetKeys = Object.keys(BLIND_TILT_PRESETS).map(Number).sort((a, b) => a - b);
-    const nearest = presetKeys.reduce((prev, curr) =>
-      Math.abs(curr - state.brightness!) < Math.abs(prev - state.brightness!) ? curr : prev
-    );
-    return BLIND_TILT_PRESETS[nearest];
+/** Parse SwitchBot API status into the nearest tilt position */
+export function parseTiltStatus(direction: string, slidePosition: number): TiltPosition {
+  if (direction === 'up') {
+    return slidePosition >= 88 ? 'closed-up' : 'half-open';
   }
-  if (state.on !== undefined) {
-    return state.on ? BLIND_TILT_PRESETS[0] : BLIND_TILT_PRESETS[100];
-  }
-  return null;
+  // direction === 'down'
+  if (slidePosition >= 34) return 'open';
+  if (slidePosition >= 8) return 'half-closed';
+  return 'closed-down';
 }
 
 /**
@@ -342,9 +329,11 @@ export function getShadeCommand(
   state: Partial<DeviceState>
 ): { command: string; parameter: string } | null {
   if (deviceType === 'Blind Tilt') {
-    const result = getBlindTiltPosition(state);
-    if (result !== null) {
-      return { command: 'setPosition', parameter: `${result.direction};${result.position}` };
+    if (state.tiltPosition) {
+      return { command: 'setPosition', parameter: TILT_COMMANDS[state.tiltPosition] };
+    }
+    if (state.on !== undefined) {
+      return { command: 'setPosition', parameter: TILT_COMMANDS[state.on ? 'open' : 'closed-down'] };
     }
     return null;
   }

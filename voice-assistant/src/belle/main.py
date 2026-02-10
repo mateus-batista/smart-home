@@ -20,7 +20,7 @@ from belle.http import close_client
 from belle.llm import chat_async
 from belle.llm import preload_model as preload_llm
 from belle.logging_config import clear_request_id, get_logger, set_request_id, setup_logging
-from belle.stt import is_valid_speech, transcribe_audio_async
+from belle.stt import is_silent_audio, is_valid_speech, transcribe_audio_async
 from belle.stt import preload_model as preload_stt
 from belle.tools import get_all_devices
 from belle.tts import is_tts_available, synthesize_speech_to_wav_async
@@ -228,9 +228,16 @@ async def voice_endpoint(request: VoiceRequest):
     request_id = set_request_id()
     logger.info(f"[{request_id}] Voice request received")
     try:
-        # Decode and transcribe audio
+        # Decode audio
         audio_bytes = base64.b64decode(request.audio)
         audio_array = _decode_audio(audio_bytes, request.format)
+
+        # Pre-Whisper silence check (fast, prevents hallucinations)
+        if is_silent_audio(audio_array):
+            logger.info(f"[{request_id}] Silent audio, skipping Whisper")
+            return VoiceResponse(transcript="", response="", actions=[])
+
+        # Transcribe
         transcription = await transcribe_audio_async(audio_array, request.language)
 
         logger.info(f"[{request_id}] STT: {transcription['text']}")
@@ -333,13 +340,19 @@ async def websocket_endpoint(websocket: WebSocket):
                     # Decode audio
                     audio_array = _decode_audio(audio_bytes, audio_format)
 
+                    # Pre-Whisper silence check (fast, prevents hallucinations)
+                    if is_silent_audio(audio_array):
+                        logger.info(f"WS [{session_id}] Silent audio, skipping Whisper")
+                        await websocket.send_json({"type": "no_speech"})
+                        continue
+
                     # Transcribe
                     transcription = await transcribe_audio_async(audio_array, language)
                     logger.info(f"WS [{session_id}] STT: {transcription['text']}")
 
                     # Filter out non-speech audio
                     if not is_valid_speech(transcription):
-                        logger.info(f"WS [{session_id}] No speech detected, skipping")
+                        logger.info(f"WS [{session_id}] No valid speech detected, skipping")
                         await websocket.send_json({"type": "no_speech"})
                         continue
 

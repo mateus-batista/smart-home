@@ -160,6 +160,80 @@ def _calculate_confidence(segments: list[dict]) -> dict:
     }
 
 
+def is_silent_audio(audio: np.ndarray, threshold: float = 0.01) -> bool:
+    """
+    Check if audio is effectively silence using RMS energy.
+
+    This runs BEFORE Whisper to avoid hallucinations from silence/noise.
+    Whisper is known to generate phantom text ("Thanks for watching", etc.)
+    when given silent or near-silent audio.
+
+    Args:
+        audio: Audio as numpy float32 array (values in -1.0 to 1.0)
+        threshold: RMS energy threshold below which audio is considered silence.
+                   0.01 ≈ -40dB, catches silence and quiet ambient noise.
+
+    Returns:
+        True if audio is silent (should skip Whisper)
+    """
+    if len(audio) == 0:
+        return True
+    rms = np.sqrt(np.mean(audio**2))
+    logger.debug(f"Audio RMS energy: {rms:.6f} (threshold: {threshold})")
+    return rms < threshold
+
+
+# Common Whisper hallucination patterns (EN + PT)
+# Whisper generates these from silence/noise with high confidence
+_HALLUCINATION_PATTERNS = [
+    "thank you for watching",
+    "thanks for watching",
+    "thank you for listening",
+    "thanks for listening",
+    "please subscribe",
+    "like and subscribe",
+    "see you next time",
+    "see you in the next",
+    "goodbye",
+    "bye bye",
+    "the end",
+    # Portuguese
+    "obrigado por assistir",
+    "obrigada por assistir",
+    "obrigado por ouvir",
+    "obrigada por ouvir",
+    "inscreva-se",
+    "até a próxima",
+    "até mais",
+    "tchau tchau",
+    # Common noise artifacts
+    "you",
+    "...",
+    "hmm",
+    "huh",
+    "ah",
+    "oh",
+    "uh",
+]
+
+
+def _is_hallucination(text: str) -> bool:
+    """Check if transcribed text matches known Whisper hallucination patterns."""
+    normalized = text.lower().strip().rstrip(".!?,")
+    # Exact match against known patterns
+    if normalized in _HALLUCINATION_PATTERNS:
+        return True
+    # Substring match for longer hallucinations
+    for pattern in _HALLUCINATION_PATTERNS[:12]:  # Only check the longer patterns
+        if pattern in normalized:
+            return True
+    # Repetition detection: same short phrase repeated (e.g., "you you you you")
+    words = normalized.split()
+    if len(words) >= 3 and len(set(words)) == 1:
+        return True
+    return False
+
+
 def is_valid_speech(transcription: dict) -> bool:
     """Check if transcription contains actual speech worth processing."""
     text = transcription.get("text", "").strip()
@@ -171,14 +245,21 @@ def is_valid_speech(transcription: dict) -> bool:
 
     # High no-speech probability — likely silence/noise
     if confidence.get("no_speech_prob", 0) > 0.5:
+        logger.debug(f"Rejected: high no_speech_prob ({confidence.get('no_speech_prob')})")
         return False
 
     # Very low confidence — likely hallucination
     if confidence.get("confidence_score", 0) < 0.3:
+        logger.debug(f"Rejected: low confidence ({confidence.get('confidence_score')})")
         return False
 
     # Too short to be meaningful (single character, noise artifacts)
     if len(text) < 2:
+        return False
+
+    # Known hallucination patterns
+    if _is_hallucination(text):
+        logger.debug(f"Rejected hallucination: '{text}'")
         return False
 
     return True

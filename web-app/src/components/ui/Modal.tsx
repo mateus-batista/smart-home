@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 
 interface ModalProps {
   children: ReactNode;
@@ -24,6 +25,8 @@ export function Modal({
   maxWidth = 'max-w-md',
   mobileFullScreen = true,
 }: ModalProps) {
+  useBodyScrollLock();
+
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (closeOnBackdropClick && e.target === e.currentTarget) {
       onClose();
@@ -32,11 +35,11 @@ export function Modal({
 
   return (
     <div
-      className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4 ${backdropClassName}`}
+      className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex sm:items-center justify-center sm:p-4 ${backdropClassName}`}
       onClick={handleBackdropClick}
     >
       <div
-        className={`glass-surface ${mobileFullScreen ? 'w-full h-full sm:h-auto sm:max-h-[90vh] rounded-t-3xl sm:rounded-3xl' : `rounded-3xl max-h-[90vh]`} ${maxWidth} sm:w-full flex flex-col overflow-hidden ${contentClassName}`}
+        className={`glass-surface ${mobileFullScreen ? 'glass-surface-flush w-full h-full sm:h-auto sm:max-h-[90vh] sm:rounded-3xl' : `rounded-3xl max-h-[90vh]`} ${maxWidth} sm:w-full flex flex-col overflow-hidden ${contentClassName}`}
         onClick={(e) => e.stopPropagation()}
       >
         {children}
@@ -65,13 +68,13 @@ export function ModalHeader({
 }: ModalHeaderProps) {
   return (
     <div
-      className={`p-6 sm:p-8 rounded-t-3xl transition-all relative shrink-0 ${className}`}
+      className={`p-6 pt-[calc(env(safe-area-inset-top,0px)+1.5rem)] sm:p-8 sm:rounded-t-3xl transition-all relative shrink-0 ${className}`}
       style={style}
     >
       {showCloseButton && (
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2.5 sm:p-2 rounded-full bg-black/20 hover:bg-black/40 transition-colors"
+          className="absolute top-[calc(env(safe-area-inset-top,0px)+1rem)] right-4 p-2.5 sm:p-2 rounded-full bg-black/20 hover:bg-black/40 transition-colors"
         >
           <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

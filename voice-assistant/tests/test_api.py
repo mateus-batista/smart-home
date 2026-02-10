@@ -228,6 +228,7 @@ class TestVoiceEndpoint:
         audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
 
         with (
+            patch("belle.main.is_silent_audio", return_value=False),
             patch("belle.main.transcribe_audio_async", new_callable=AsyncMock) as mock_stt,
             patch("belle.main.chat_async", new_callable=AsyncMock) as mock_chat,
             patch("belle.main.settings") as mock_settings,
@@ -259,6 +260,7 @@ class TestVoiceEndpoint:
         audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
 
         with (
+            patch("belle.main.is_silent_audio", return_value=False),
             patch("belle.main.transcribe_audio_async", new_callable=AsyncMock) as mock_stt,
             patch("belle.main.chat_async", new_callable=AsyncMock) as mock_chat,
             patch("belle.main.settings") as mock_settings,
@@ -302,6 +304,7 @@ class TestWebSocket:
         audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
 
         with (
+            patch("belle.main.is_silent_audio", return_value=False),
             patch("belle.main.transcribe_audio_async", new_callable=AsyncMock) as mock_stt,
             patch("belle.main.chat_async", new_callable=AsyncMock) as mock_chat,
             patch("belle.main.settings") as mock_settings,

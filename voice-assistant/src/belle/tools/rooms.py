@@ -30,7 +30,7 @@ ROOM_TOOLS = [
         "type": "function",
         "function": {
             "name": "control_room",
-            "description": "Control ALL devices/lights in a room at once. USE THIS when user says 'kitchen lights', 'bedroom lights', 'turn on the kitchen', 'turn off the living room', etc. This is the PREFERRED tool when a room name is mentioned with 'lights' or when the user wants to control an entire room.",
+            "description": "Control ALL LIGHTS in a room at once (excludes shades/blinds). USE THIS when user says 'kitchen lights', 'bedroom lights', 'turn on the kitchen', 'turn off the living room', 'turn off everything', etc. This controls lights ONLY — shades/blinds are never affected.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -63,7 +63,7 @@ ROOM_TOOLS = [
         "type": "function",
         "function": {
             "name": "control_room_shades",
-            "description": "Control ALL shades, curtains, or blinds in a room at once. USE THIS when user says 'close the living room blinds', 'open bedroom curtains', 'close all curtains in the kitchen', 'fecha as cortinas da sala', etc. This is the PREFERRED tool when a room name is mentioned with 'blinds', 'curtains', 'shades', 'cortinas', or 'persianas'.",
+            "description": "Control ALL shades, curtains, or blinds in a room at once. ONLY use this when the user EXPLICITLY mentions shades, blinds, curtains, persianas, or cortinas. Examples: 'close the living room blinds', 'open bedroom curtains', 'fecha as cortinas da sala'. NEVER use for generic room commands like 'turn off the living room' or 'desliga a sala' — those are for lights only.",
             "parameters": {
                 "type": "object",
                 "properties": {

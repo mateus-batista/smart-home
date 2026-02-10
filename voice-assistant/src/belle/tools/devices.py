@@ -95,7 +95,7 @@ DEVICE_TOOLS = [
         "type": "function",
         "function": {
             "name": "control_shade",
-            "description": "Control smart shades, curtains, or blinds. Use this for any window covering control like opening, closing, or setting a specific position. For Blind Tilt devices (venetian blinds with tilting slats), 'open' sets horizontal slats to let light through, and 'close' tilts slats downward to block light.",
+            "description": "Control a SINGLE smart shade, curtain, or blind. ONLY use this when the user EXPLICITLY mentions shades, blinds, curtains, persianas, or cortinas in their message. NEVER use for generic commands like 'turn off everything' or 'turn off the room'. For Blind Tilt devices, 'open' sets horizontal slats to let light through, and 'close' tilts slats downward to block light.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -351,22 +351,7 @@ def _is_blind_tilt(device: dict) -> bool:
     return device.get("deviceType") == "Blind Tilt"
 
 
-def _get_blind_tilt_position_for_openness(openness: int) -> int:
-    """
-    Convert visual openness (0-100) to Blind Tilt position.
-
-    For Blind Tilt devices:
-    - Position 100 = slats tilted down = fully open (lets light in)
-    - Position 0 = slats horizontal = closed (blocks light)
-
-    We use position 0-100 range linearly mapping to openness 0-100.
-    """
-    if openness >= 100:
-        return 100  # Fully open = slats tilted down
-    elif openness <= 0:
-        return 0  # Fully closed = slats horizontal
-    else:
-        return openness  # Linear mapping
+TILT_POSITIONS = ["closed-up", "half-open", "open", "half-closed", "closed-down"]
 
 
 async def control_shade(
@@ -413,19 +398,20 @@ async def control_shade(
         state_update: dict[str, Any] = {}
 
         if action == "open":
-            state_update["on"] = True
             if is_blind_tilt:
-                # Blind Tilt: 100 = slats tilted down = fully open (lets light in)
-                state_update["brightness"] = 100
+                state_update["tiltPosition"] = "open"
+                state_update["on"] = True
             else:
-                state_update["brightness"] = 100  # 100% open
+                state_update["brightness"] = 100
+                state_update["on"] = True
         elif action == "close":
-            state_update["on"] = False
-            # Always close to position 0 (closes downward for Blind Tilt)
-            state_update["brightness"] = 0  # 0% open = closed
+            if is_blind_tilt:
+                state_update["tiltPosition"] = "closed-down"
+                state_update["on"] = False
+            else:
+                state_update["brightness"] = 0
+                state_update["on"] = False
         elif action == "stop":
-            # For stop, we need to send a specific command
-            # Most APIs don't support stop via state, so we'll try with the current position
             logger.info("Stop command for shade - maintaining current position")
             return {
                 "success": True,
@@ -437,11 +423,14 @@ async def control_shade(
             if position is None:
                 return {"success": False, "error": "Position is required for 'position' action"}
             if is_blind_tilt:
-                # Convert visual openness to Blind Tilt position
-                state_update["brightness"] = _get_blind_tilt_position_for_openness(position)
+                # Map position percentage to nearest tilt position
+                tilt_map = {0: "closed-down", 25: "half-closed", 50: "open", 75: "half-open", 100: "closed-up"}
+                nearest = min(tilt_map.keys(), key=lambda k: abs(k - position))
+                state_update["tiltPosition"] = tilt_map[nearest]
+                state_update["on"] = tilt_map[nearest] == "open"
             else:
-                state_update["brightness"] = position  # Position maps to brightness (100 = open)
-            state_update["on"] = position > 0
+                state_update["brightness"] = position
+                state_update["on"] = position > 0
 
         if not state_update:
             return {"success": False, "error": f"Unknown action: {action}"}

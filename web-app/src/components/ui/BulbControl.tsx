@@ -16,7 +16,11 @@ const ZONES = [
 
 const TRANSITION = 'all 1.4s cubic-bezier(0.22, 1, 0.36, 1)';
 
-const GLASS_SIZE = 160;
+// Bulb path from DeviceIcon, scaled from 24x24 viewBox to pixel coords (scale=11, offset by -5,-2)
+// Original: M12 2a7 7 0 00-4 12.7V17a1 1 0 001 1h6a1 1 0 001-1v-2.3A7 7 0 0012 2z
+const GLASS_W = 154;
+const GLASS_H = 176;
+const BULB_CLIP = "path('M77 0a77 77 0 00-44 139.7V165a11 11 0 0011 11h66a11 11 0 0011-11v-25.3A77 77 0 0077 0z')";
 
 function getActiveZone(brightness: number): number {
   let closest = ZONES[0].value;
@@ -36,6 +40,17 @@ function getStatusLabel(activeValue: number): string {
   return zone?.label ?? `${activeValue}%`;
 }
 
+/** Returns 0–1 based on current time: 0=night, 1=noon. Smooth transitions at dawn/dusk. */
+function getDaylightFactor(): number {
+  const now = new Date();
+  const h = now.getHours() + now.getMinutes() / 60;
+  // Dawn 5–8am: 0→1 gradually, Dusk 17–20pm: 1→0 gradually
+  if (h >= 5 && h <= 8) return (h - 5) / 3;
+  if (h > 8 && h < 17) return 1;
+  if (h >= 17 && h <= 20) return 1 - (h - 17) / 3;
+  return 0;
+}
+
 export function BulbControl({
   brightness,
   onBrightnessChange,
@@ -51,14 +66,23 @@ export function BulbControl({
   const glowRadius = 25 + t * 100;
   const glowOpacity = t * 0.65;
 
-  const bulbL = t > 0 ? 50 + t * 42 : 16;
-  const bulbS = t > 0 ? warmSat : 0;
-  const bulbHue = t > 0 ? warmHue : 220;
+  // Daylight factor: 0 = night, 1 = noon
+  const d = getDaylightFactor();
 
-  // Room silhouette reactivity
-  const roomBgL = 3 + t * 10;
-  const silL = 6 + t * 10;
-  const moonOp = 0.3 + (1 - t) * 0.35;
+  // Effective daylight — only contributes when bulb is on
+  // Bulb brightness gates how much daylight affects the room
+  const de = d * t;
+
+  // Wall hue shifts subtly from cool blue-gray toward warm neutral
+  const wallHue = 220 - de * 60;    // 220° → 160° (subtle warm shift)
+  const wallSat = 14 + de * 6;      // 14% → 20%
+
+  // Room silhouette reactivity — bulb is primary, daylight adds a gentle lift
+  const roomBgL = 3 + t * 10 + de * 18;   // night-off:3  night-full:13  day-full:31
+  const silL = 6 + t * 10 + de * 14;      // night-off:6  night-full:16  day-full:30
+
+  // Moon visibility = inverse of daylight, also dims with bulb
+  const moonOp = (1 - d) * (0.3 + (1 - t) * 0.35);
 
   return (
     <div className="flex flex-col items-center gap-3">
@@ -77,12 +101,12 @@ export function BulbControl({
             transition: TRANSITION,
             background: `
               radial-gradient(ellipse 80% 60% at 50% 45%,
-                hsla(${warmHue}, ${warmSat}%, ${20 + t * 35}%, ${t * 0.5}) 0%,
+                hsla(${warmHue}, ${warmSat}%, ${20 + t * 35}%, ${t * 0.65}) 0%,
                 transparent 100%),
               linear-gradient(180deg,
-                hsl(220, 18%, ${roomBgL + 2}%) 0%,
-                hsl(225, 14%, ${roomBgL}%) 60%,
-                hsl(220, 12%, ${roomBgL - 1}%) 100%)`,
+                hsl(${wallHue}, ${wallSat + 4}%, ${roomBgL + 2}%) 0%,
+                hsl(${wallHue + 5}, ${wallSat}%, ${roomBgL}%) 60%,
+                hsl(${wallHue}, ${wallSat - 2}%, ${roomBgL - 1}%) 100%)`,
           }}
         />
 
@@ -107,7 +131,7 @@ export function BulbControl({
             height: '15%',
             transition: TRANSITION,
             background: `linear-gradient(180deg,
-              hsla(220, 20%, ${roomBgL - 2}%, 0.6) 0%,
+              hsla(${wallHue}, 20%, ${roomBgL - 2}%, ${0.6 - de * 0.15}) 0%,
               transparent 100%)`,
             pointerEvents: 'none',
           }}
@@ -120,8 +144,8 @@ export function BulbControl({
             height: '22%',
             transition: TRANSITION,
             background: `linear-gradient(180deg,
-              hsl(25, 12%, ${silL - 2}%) 0%,
-              hsl(20, 14%, ${silL - 3}%) 100%)`,
+              hsl(25, ${12 + de * 6}%, ${silL - 2}%) 0%,
+              hsl(20, ${14 + de * 6}%, ${silL - 3}%) 100%)`,
           }}
         />
 
@@ -132,7 +156,7 @@ export function BulbControl({
             height: '22%',
             transition: TRANSITION,
             background: `radial-gradient(ellipse 60% 80% at 50% 0%,
-              hsla(${warmHue}, ${warmSat}%, 50%, ${t * 0.12}) 0%,
+              hsla(${warmHue}, ${warmSat}%, 50%, ${t * 0.2}) 0%,
               transparent 100%)`,
             pointerEvents: 'none',
           }}
@@ -153,6 +177,18 @@ export function BulbControl({
           }}
         />
 
+        {/* Vignette — darkens edges/corners, recedes with brightness */}
+        <div
+          className="absolute inset-0"
+          style={{
+            transition: TRANSITION,
+            background: `radial-gradient(ellipse 65% 55% at 50% 45%,
+              transparent 0%,
+              hsla(220, 20%, 2%, ${0.35 - t * 0.15}) 100%)`,
+            pointerEvents: 'none',
+          }}
+        />
+
         {/* ── Window with curtains — upper right ── */}
         <div
           className="absolute"
@@ -169,24 +205,54 @@ export function BulbControl({
               boxShadow: `inset 0 0 8px rgba(0,0,0,0.2)`,
             }}
           >
-            {/* Night sky / moonlight through glass */}
+            {/* Sky through glass — night blue → golden hour → day blue */}
             <div
               className="absolute inset-0"
               style={{
                 borderRadius: '1px',
                 transition: TRANSITION,
-                background: `linear-gradient(180deg,
-                  hsla(215, 35%, ${16 + (1-t)*8}%, ${moonOp}) 0%,
-                  hsla(220, 30%, ${12 + (1-t)*6}%, ${moonOp * 0.8}) 100%)`,
-                boxShadow: `0 0 ${8 + (1 - t) * 16}px hsla(210, 45%, 55%, ${(1 - t) * 0.15})`,
+                background: d > 0.3
+                  ? `linear-gradient(180deg,
+                      hsl(${210 - d * 10}, ${40 + d * 25}%, ${30 + d * 45}%) 0%,
+                      hsl(${215 - d * 15}, ${35 + d * 20}%, ${25 + d * 50}%) 100%)`
+                  : d > 0
+                    ? `linear-gradient(180deg,
+                        hsl(${30 + d * 60}, ${50 + d * 20}%, ${20 + d * 35}%) 0%,
+                        hsl(${15 + d * 50}, ${45 + d * 15}%, ${15 + d * 25}%) 100%)`
+                    : `linear-gradient(180deg,
+                        hsla(215, 35%, ${16 + (1-t)*8}%, ${moonOp > 0 ? 1 : 0.8}) 0%,
+                        hsla(220, 30%, ${12 + (1-t)*6}%, ${moonOp > 0 ? 0.95 : 0.7}) 100%)`,
+                boxShadow: d > 0.3
+                  ? `0 0 ${8 + d * 12}px hsla(50, 60%, 70%, ${d * 0.15})`
+                  : `0 0 ${8 + (1 - t) * 16}px hsla(210, 45%, 55%, ${(1 - d) * (1 - t) * 0.15})`,
               }}
             />
+            {/* Sun disc — visible when d > 0.3 */}
+            {d > 0.3 && (
+              <div
+                className="absolute"
+                style={{
+                  top: '15%',
+                  right: '20%',
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  transition: TRANSITION,
+                  background: `radial-gradient(circle,
+                    hsla(45, 100%, 90%, ${Math.min(d, 1) * 0.9}) 0%,
+                    hsla(40, 90%, 70%, ${Math.min(d, 1) * 0.5}) 60%,
+                    transparent 100%)`,
+                  boxShadow: `0 0 6px hsla(45, 90%, 80%, ${d * 0.4})`,
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
             {/* Crossbars */}
             <div className="absolute left-1/2 top-0 bottom-0 -translate-x-1/2" style={{ width: '2px', background: `hsl(220, 8%, ${silL + 8}%)`, transition: TRANSITION }} />
             <div className="absolute top-1/2 left-0 right-0 -translate-y-1/2" style={{ height: '2px', background: `hsl(220, 8%, ${silL + 8}%)`, transition: TRANSITION }} />
-            {/* Stars */}
-            <div className="absolute" style={{ top: '18%', left: '22%', width: '2px', height: '2px', borderRadius: '50%', background: `rgba(255,255,255,${(1-t)*0.35})`, transition: TRANSITION }} />
-            <div className="absolute" style={{ top: '30%', right: '28%', width: '1.5px', height: '1.5px', borderRadius: '50%', background: `rgba(255,255,255,${(1-t)*0.25})`, transition: TRANSITION }} />
+            {/* Stars — fade with daylight */}
+            <div className="absolute" style={{ top: '18%', left: '22%', width: '2px', height: '2px', borderRadius: '50%', background: `rgba(255,255,255,${(1-d)*0.35})`, transition: TRANSITION }} />
+            <div className="absolute" style={{ top: '30%', right: '28%', width: '1.5px', height: '1.5px', borderRadius: '50%', background: `rgba(255,255,255,${(1-d)*0.25})`, transition: TRANSITION }} />
           </div>
           {/* Left curtain */}
           <div
@@ -226,15 +292,19 @@ export function BulbControl({
               transition: TRANSITION,
             }}
           />
-          {/* Moonlight spill on wall */}
+          {/* Light spill on wall — moonlight (night) / sunlight (day) */}
           <div
             className="absolute"
             style={{
               top: '0%', left: '10%', right: '10%', bottom: '-20%',
               transition: TRANSITION,
-              background: `linear-gradient(180deg,
-                hsla(210, 30%, 60%, ${(1-t) * 0.04}) 0%,
-                transparent 100%)`,
+              background: d > 0.3
+                ? `linear-gradient(180deg,
+                    hsla(45, 50%, 80%, ${d * 0.06}) 0%,
+                    transparent 100%)`
+                : `linear-gradient(180deg,
+                    hsla(210, 30%, 60%, ${(1-t) * (1-d) * 0.04}) 0%,
+                    transparent 100%)`,
               pointerEvents: 'none',
             }}
           />
@@ -361,6 +431,19 @@ export function BulbControl({
           {/* Couch legs */}
           <div className="absolute" style={{ bottom: '-6%', left: '5%', width: '4%', height: '8%', borderRadius: '0 0 1px 1px', background: `hsl(25, 12%, ${silL - 2}%)`, transition: TRANSITION }} />
           <div className="absolute" style={{ bottom: '-6%', right: '5%', width: '4%', height: '8%', borderRadius: '0 0 1px 1px', background: `hsl(25, 12%, ${silL - 2}%)`, transition: TRANSITION }} />
+          {/* Cast shadow under couch */}
+          <div
+            className="absolute"
+            style={{
+              bottom: '-10%', left: '-2%', right: '-2%', height: '12%',
+              transition: TRANSITION,
+              borderRadius: '50%',
+              background: `radial-gradient(ellipse 100% 80% at 50% 20%,
+                rgba(0,0,0,${0.3 - t * 0.1}) 0%,
+                transparent 100%)`,
+              pointerEvents: 'none',
+            }}
+          />
         </div>
 
         {/* ── Side table + plant ── */}
@@ -383,6 +466,19 @@ export function BulbControl({
           <div className="absolute" style={{ bottom: 0, right: '12%', width: '3%', top: '46%', background: `hsl(25, 12%, ${silL + 1}%)`, transition: TRANSITION }} />
           {/* Table crossbar */}
           <div className="absolute" style={{ bottom: '12%', left: '14%', right: '14%', height: '2%', background: `hsl(25, 10%, ${silL}%)`, transition: TRANSITION }} />
+          {/* Cast shadow under table */}
+          <div
+            className="absolute"
+            style={{
+              bottom: '-6%', left: '0%', right: '0%', height: '10%',
+              transition: TRANSITION,
+              borderRadius: '50%',
+              background: `radial-gradient(ellipse 100% 80% at 50% 30%,
+                rgba(0,0,0,${0.25 - t * 0.08}) 0%,
+                transparent 100%)`,
+              pointerEvents: 'none',
+            }}
+          />
           {/* Pot */}
           <div
             className="absolute"
@@ -456,6 +552,30 @@ export function BulbControl({
               transition: TRANSITION,
             }}
           />
+          {/* Cast shadow — right side of bookshelf on wall */}
+          <div
+            className="absolute"
+            style={{
+              top: '2%', left: '100%', width: '18%', bottom: '-4%',
+              transition: TRANSITION,
+              background: `linear-gradient(90deg,
+                rgba(0,0,0,${0.15 + t * 0.1}) 0%,
+                transparent 100%)`,
+              pointerEvents: 'none',
+            }}
+          />
+          {/* Cast shadow — below bookshelf on wall */}
+          <div
+            className="absolute"
+            style={{
+              top: '100%', left: '0%', right: '-10%', height: '12%',
+              transition: TRANSITION,
+              background: `linear-gradient(180deg,
+                rgba(0,0,0,${0.12 + t * 0.08}) 0%,
+                transparent 100%)`,
+              pointerEvents: 'none',
+            }}
+          />
           {/* Shelves */}
           <div className="absolute left-0 right-0" style={{ top: '33%', height: '2px', background: `hsl(25, 12%, ${silL + 5}%)`, boxShadow: '0 1px 2px rgba(0,0,0,0.1)', transition: TRANSITION }} />
           <div className="absolute left-0 right-0" style={{ top: '66%', height: '2px', background: `hsl(25, 12%, ${silL + 5}%)`, boxShadow: '0 1px 2px rgba(0,0,0,0.1)', transition: TRANSITION }} />
@@ -501,24 +621,6 @@ export function BulbControl({
           <div style={{ width: '16px', height: '4px', borderRadius: '2px', background: `linear-gradient(180deg, hsl(35, 8%, ${silL + 4}%) 0%, hsl(35, 6%, ${silL + 2}%) 100%)`, transition: TRANSITION }} />
         </div>
 
-        {/* Light cone from bulb */}
-        <div
-          className="absolute"
-          style={{
-            top: '45%',
-            left: '12%',
-            right: '12%',
-            bottom: '0%',
-            transition: TRANSITION,
-            opacity: t * 0.1,
-            background: `linear-gradient(180deg,
-              hsla(${warmHue}, ${warmSat}%, 65%, 0.6) 0%,
-              hsla(${warmHue}, ${warmSat * 0.5}%, 45%, 0) 100%)`,
-            clipPath: 'polygon(35% 0%, 65% 0%, 100% 100%, 0% 100%)',
-            pointerEvents: 'none',
-          }}
-        />
-
         {/* Wall light spill — soft light hitting the wall behind the bulb */}
         <div
           className="absolute"
@@ -530,7 +632,7 @@ export function BulbControl({
             transition: TRANSITION,
             borderRadius: '50%',
             background: `radial-gradient(circle,
-              hsla(${warmHue}, ${warmSat}%, 60%, ${t * 0.08}) 0%,
+              hsla(${warmHue}, ${warmSat}%, 60%, ${t * 0.14}) 0%,
               transparent 100%)`,
             pointerEvents: 'none',
           }}
@@ -554,11 +656,11 @@ export function BulbControl({
             className="absolute"
             style={{
               transition: TRANSITION,
-              top: `${GLASS_SIZE / 2 - (GLASS_SIZE * (0.7 + t * 0.4)) / 2}px`,
+              top: `${GLASS_H * 0.25 - (GLASS_W * (0.7 + t * 0.4)) / 2}px`,
               left: '50%',
               transform: 'translateX(-50%)',
-              width: `${GLASS_SIZE * (0.7 + t * 0.7)}px`,
-              height: `${GLASS_SIZE * (0.7 + t * 0.7)}px`,
+              width: `${GLASS_W * (0.7 + t * 0.7)}px`,
+              height: `${GLASS_W * (0.7 + t * 0.7)}px`,
               borderRadius: '50%',
               background: `radial-gradient(circle,
                 hsla(${warmHue}, ${warmSat}%, 60%, ${glowOpacity * 0.4}) 0%,
@@ -567,82 +669,181 @@ export function BulbControl({
             }}
           />
 
-          {/* Glass envelope — circular */}
+          {/* Glass envelope — clear Edison bulb, light comes from the filament */}
           <div
             className="relative"
             style={{
-              width: `${GLASS_SIZE}px`,
-              height: `${GLASS_SIZE}px`,
+              width: `${GLASS_W}px`,
+              height: `${GLASS_H}px`,
               transition: TRANSITION,
-              borderRadius: '50%',
-              background: t > 0
-                ? `radial-gradient(circle at 48% 46%,
-                    hsla(${warmHue}, ${bulbS}%, ${bulbL}%, 1) 0%,
-                    hsla(${warmHue}, ${bulbS * 0.8}%, ${bulbL * 0.75}%, 0.95) 35%,
-                    hsla(${warmHue}, ${bulbS * 0.6}%, ${bulbL * 0.55}%, 0.9) 65%,
-                    hsla(${warmHue}, ${bulbS * 0.4}%, ${bulbL * 0.35}%, 0.85) 100%)`
-                : `radial-gradient(circle at 48% 46%,
-                    hsl(220, 6%, 22%) 0%,
-                    hsl(220, 8%, 15%) 45%,
-                    hsl(220, 10%, 10%) 100%)`,
-              boxShadow: t > 0
-                ? `0 0 ${glowRadius}px ${glowRadius * 0.4}px hsla(${warmHue}, ${warmSat}%, 55%, ${glowOpacity * 0.5}),
-                   0 0 ${glowRadius * 0.4}px ${glowRadius * 0.15}px hsla(${warmHue}, ${warmSat}%, 75%, ${glowOpacity * 0.3}),
-                   inset 0 -8px 22px hsla(${warmHue}, ${warmSat}%, 90%, ${t * 0.1}),
-                   inset 0 8px 18px hsla(${warmHue}, ${warmSat}%, 25%, 0.1)`
-                : `inset 0 -6px 12px rgba(255,255,255,0.03),
-                   inset 0 6px 12px rgba(0,0,0,0.15),
-                   0 4px 20px rgba(0,0,0,0.25)`,
+              clipPath: BULB_CLIP,
+              background: `radial-gradient(ellipse 70% 55% at 50% 38%,
+                  hsla(${warmHue}, ${warmSat}%, 55%, ${t * 0.15}) 0%,
+                  hsla(${warmHue}, ${warmSat * 0.5}%, 40%, ${t * 0.06}) 40%,
+                  hsla(220, 10%, 18%, ${0.45 - t * 0.1}) 100%)`,
+              boxShadow: `inset 0 0 ${12 + t * 6}px rgba(255,255,255,${0.04 + t * 0.03}),
+                          inset 0 -4px 12px rgba(0,0,0,${0.12 - t * 0.04})`,
+              filter: t > 0
+                ? `drop-shadow(0 0 ${glowRadius * 0.5}px hsla(${warmHue}, ${warmSat}%, 55%, ${glowOpacity * 0.45}))
+                   drop-shadow(0 0 ${glowRadius * 0.15}px hsla(${warmHue}, ${warmSat}%, 75%, ${glowOpacity * 0.25}))`
+                : `drop-shadow(0 4px 10px rgba(0,0,0,0.3))`,
             }}
           >
-            {/* Glass specular highlight */}
+            {/* Glass edge rim — clear glass refraction highlights */}
             <div
-              className="absolute"
+              className="absolute inset-0"
               style={{
-                top: '13%',
-                left: '19%',
-                width: '30%',
-                height: '26%',
-                borderRadius: '50%',
                 transition: TRANSITION,
-                background: `radial-gradient(ellipse at 50% 50%,
-                  rgba(255,255,255,${0.06 + t * 0.16}) 0%,
-                  transparent 100%)`,
+                background: `
+                  linear-gradient(90deg,
+                    rgba(255,255,255,${0.12 + t * 0.06}) 0%,
+                    rgba(255,255,255,${0.04 + t * 0.02}) 3%,
+                    transparent 12%,
+                    transparent 88%,
+                    rgba(255,255,255,${0.04 + t * 0.02}) 97%,
+                    rgba(255,255,255,${0.1 + t * 0.05}) 100%),
+                  linear-gradient(180deg,
+                    rgba(255,255,255,${0.06 + t * 0.03}) 0%,
+                    transparent 12%,
+                    transparent 88%,
+                    rgba(0,0,0,0.1) 100%)`,
+                pointerEvents: 'none',
               }}
             />
 
-            {/* Filament (visible when dim or off) */}
-            {t <= 0.3 && (
-              <div
-                className="absolute"
-                style={{
-                  top: '30%',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: '34px',
-                  height: '38px',
-                  opacity: t > 0 ? 0.7 : 0.2,
-                  transition: TRANSITION,
-                }}
-              >
-                <div className="absolute" style={{ left: '30%', top: 0, width: '1px', height: '100%', background: `hsla(${warmHue}, ${t > 0 ? 60 : 0}%, ${t > 0 ? 45 : 25}%, ${t > 0 ? 0.5 : 0.3})` }} />
-                <div className="absolute" style={{ right: '30%', top: 0, width: '1px', height: '100%', background: `hsla(${warmHue}, ${t > 0 ? 60 : 0}%, ${t > 0 ? 45 : 25}%, ${t > 0 ? 0.5 : 0.3})` }} />
-                <div
-                  className="absolute"
-                  style={{
-                    top: '18%', left: '18%', right: '18%', height: '58%',
-                    borderRadius: '50%',
-                    border: `1.5px solid hsla(${warmHue}, ${t > 0 ? 80 : 0}%, ${t > 0 ? 50 : 22}%, ${t > 0 ? 0.6 : 0.25})`,
-                    borderBottom: 'none',
-                  }}
+            {/* Glass specular highlight — upper-left of the dome */}
+            <div
+              className="absolute"
+              style={{
+                top: '6%',
+                left: '15%',
+                width: '32%',
+                height: '20%',
+                borderRadius: '50%',
+                transition: TRANSITION,
+                background: `radial-gradient(ellipse at 50% 50%,
+                  rgba(255,255,255,${0.1 + t * 0.08}) 0%,
+                  transparent 100%)`,
+                pointerEvents: 'none',
+              }}
+            />
+
+            {/* Filament radial glow — warm light emanating from the coils */}
+            <div
+              className="absolute"
+              style={{
+                top: '30%',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: `${50 + t * 80}px`,
+                height: `${50 + t * 70}px`,
+                borderRadius: '50%',
+                transition: TRANSITION,
+                background: `radial-gradient(circle,
+                  hsla(${warmHue}, ${warmSat}%, 70%, ${t * 0.55}) 0%,
+                  hsla(${warmHue}, ${warmSat}%, 55%, ${t * 0.25}) 30%,
+                  hsla(${warmHue}, ${warmSat * 0.6}%, 40%, ${t * 0.08}) 60%,
+                  transparent 100%)`,
+                pointerEvents: 'none',
+              }}
+            />
+
+            {/* Edison tungsten filament — support wires from base, coils in center */}
+            <div
+              className="absolute"
+              style={{
+                top: '15%',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: '100px',
+                height: '130px',
+                opacity: t > 0 ? 1 : 0.3,
+                transition: TRANSITION,
+                pointerEvents: 'none',
+              }}
+            >
+              <svg viewBox="0 0 100 130" fill="none" width="100" height="130">
+                {/* Glass button anchor at top center */}
+                <circle cx="50" cy="5" r="2" fill={`hsla(${warmHue}, ${t > 0 ? 40 : 0}%, ${t > 0 ? 45 : 25}%, ${t > 0 ? 0.5 : 0.25})`} />
+                {/* Support wires from base rising up to coils */}
+                <path
+                  d="M38 128 L38 90 Q38 72 34 58"
+                  stroke={`hsla(${warmHue}, ${t > 0 ? 40 : 0}%, ${t > 0 ? 45 : 22}%, ${t > 0 ? 0.55 : 0.2})`}
+                  strokeWidth="1"
+                  fill="none"
                 />
-              </div>
-            )}
+                <path
+                  d="M62 128 L62 90 Q62 72 66 58"
+                  stroke={`hsla(${warmHue}, ${t > 0 ? 40 : 0}%, ${t > 0 ? 45 : 22}%, ${t > 0 ? 0.55 : 0.2})`}
+                  strokeWidth="1"
+                  fill="none"
+                />
+                {/* Center support wire to anchor */}
+                <line x1="50" y1="5" x2="50" y2="42" stroke={`hsla(${warmHue}, ${t > 0 ? 35 : 0}%, ${t > 0 ? 40 : 22}%, ${t > 0 ? 0.4 : 0.15})`} strokeWidth="0.8" />
+                {/* Spreader wires — from center support to coil tops */}
+                <line x1="50" y1="42" x2="34" y2="50" stroke={`hsla(${warmHue}, ${t > 0 ? 40 : 0}%, ${t > 0 ? 45 : 22}%, ${t > 0 ? 0.5 : 0.2})`} strokeWidth="0.8" />
+                <line x1="50" y1="42" x2="66" y2="50" stroke={`hsla(${warmHue}, ${t > 0 ? 40 : 0}%, ${t > 0 ? 45 : 22}%, ${t > 0 ? 0.5 : 0.2})`} strokeWidth="0.8" />
+                {/* Left zigzag filament coil */}
+                <path
+                  d="M34 50 L38 55 L30 60 L38 65 L30 70 L38 75 L30 80 L38 85 L34 90"
+                  stroke={`hsla(${warmHue}, ${t > 0 ? 85 : 0}%, ${t > 0 ? 65 : 22}%, ${t > 0 ? 0.9 : 0.3})`}
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                {/* Right zigzag filament coil */}
+                <path
+                  d="M66 50 L62 55 L70 60 L62 65 L70 70 L62 75 L70 80 L62 85 L66 90"
+                  stroke={`hsla(${warmHue}, ${t > 0 ? 85 : 0}%, ${t > 0 ? 65 : 22}%, ${t > 0 ? 0.9 : 0.3})`}
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                {/* Filament glow when on — bright, the primary light source */}
+                {t > 0 && (
+                  <>
+                    <path
+                      d="M34 50 L38 55 L30 60 L38 65 L30 70 L38 75 L30 80 L38 85 L34 90"
+                      stroke={`hsla(${warmHue}, 95%, 75%, ${t * 0.6})`}
+                      strokeWidth="5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      filter="blur(3px)"
+                    />
+                    <path
+                      d="M66 50 L62 55 L70 60 L62 65 L70 70 L62 75 L70 80 L62 85 L66 90"
+                      stroke={`hsla(${warmHue}, 95%, 75%, ${t * 0.6})`}
+                      strokeWidth="5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      filter="blur(3px)"
+                    />
+                    {/* Hot white core glow on filaments */}
+                    <path
+                      d="M34 50 L38 55 L30 60 L38 65 L30 70 L38 75 L30 80 L38 85 L34 90"
+                      stroke={`hsla(${warmHue}, 60%, 90%, ${t * 0.4})`}
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      filter="blur(1px)"
+                    />
+                    <path
+                      d="M66 50 L62 55 L70 60 L62 65 L70 70 L62 75 L70 80 L62 85 L66 90"
+                      stroke={`hsla(${warmHue}, 60%, 90%, ${t * 0.4})`}
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      filter="blur(1px)"
+                    />
+                  </>
+                )}
+              </svg>
+            </div>
 
             {/* ── Tap zones inside the glass ── */}
             <div
               className="absolute inset-0 flex flex-col z-20 overflow-hidden"
-              style={{ borderRadius: '50%' }}
+              style={{ clipPath: BULB_CLIP }}
             >
               {ZONES.map((zone) => (
                 <button
@@ -658,32 +859,62 @@ export function BulbControl({
             </div>
           </div>
 
-          {/* Neck */}
+          {/* Brightness level marker — floats to the right of the bulb */}
           <div
+            className="absolute"
             style={{
-              width: '50px',
-              height: '14px',
-              marginTop: '-4px',
-              background: `linear-gradient(180deg,
-                hsl(${bulbHue}, ${Math.max(bulbS * 0.4, 5)}%, ${Math.min(bulbL * 0.7, 50)}%) 0%,
-                hsl(${bulbHue}, ${Math.max(bulbS * 0.3, 5)}%, ${Math.min(bulbL * 0.6, 40)}%) 100%)`,
-              borderRadius: '6px 6px 0 0',
+              right: `-20px`,
+              top: `${((100 - activeValue) / 25 + 0.5) / 5 * GLASS_H}px`,
+              transform: 'translateY(-50%)',
               transition: TRANSITION,
+              display: 'flex',
+              flexDirection: 'row-reverse',
+              alignItems: 'center',
+              gap: '4px',
+              pointerEvents: 'none',
             }}
-          />
+          >
+            {/* Line connecting to bulb edge */}
+            <div
+              style={{
+                width: '8px',
+                height: '1.5px',
+                transition: TRANSITION,
+                background: t > 0
+                  ? `hsla(${warmHue}, ${warmSat}%, 65%, ${0.3 + t * 0.4})`
+                  : 'rgba(255,255,255,0.15)',
+              }}
+            />
+            {/* Dot */}
+            <div
+              style={{
+                width: '5px',
+                height: '5px',
+                borderRadius: '50%',
+                transition: TRANSITION,
+                background: t > 0
+                  ? `hsla(${warmHue}, ${warmSat}%, 70%, ${0.4 + t * 0.5})`
+                  : 'rgba(255,255,255,0.2)',
+                boxShadow: t > 0
+                  ? `0 0 6px hsla(${warmHue}, ${warmSat}%, 60%, ${t * 0.4})`
+                  : 'none',
+              }}
+            />
+          </div>
 
-          {/* Screw threads */}
+          {/* Screw threads — Edison E26 base */}
           <div
             style={{
-              width: '46px',
-              height: '26px',
+              width: '66px',
+              height: '28px',
+              marginTop: '-1px',
               background: `repeating-linear-gradient(180deg,
                 hsl(40, 8%, 55%) 0px,
                 hsl(38, 10%, 46%) 3px,
                 hsl(40, 7%, 54%) 5px,
                 hsl(38, 10%, 48%) 7px,
                 hsl(40, 8%, 55%) 10px)`,
-              borderRadius: '3px',
+              borderRadius: '2px 2px 4px 4px',
               boxShadow: 'inset 0 0 4px rgba(0,0,0,0.15)',
             }}
           />
@@ -691,7 +922,7 @@ export function BulbControl({
           {/* Insulator ring */}
           <div
             style={{
-              width: '28px',
+              width: '30px',
               height: '5px',
               background: 'hsl(220, 8%, 18%)',
               borderRadius: '1px',
@@ -701,9 +932,9 @@ export function BulbControl({
           {/* Contact tip */}
           <div
             style={{
-              width: '12px',
+              width: '14px',
               height: '8px',
-              borderRadius: '0 0 3px 3px',
+              borderRadius: '0 0 4px 4px',
               background: 'linear-gradient(180deg, hsl(35, 6%, 48%) 0%, hsl(35, 8%, 56%) 100%)',
               boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
             }}

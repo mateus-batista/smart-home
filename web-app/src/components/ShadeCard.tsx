@@ -1,45 +1,26 @@
 import { memo } from 'react';
-import type { Light } from '../types/devices';
-import { getVisualOpenness } from '../utils/shadeHelpers';
+import type { Light, DeviceState } from '../types/devices';
+import { getDeviceIconType } from '../types/devices';
+import { TILT_VISUAL_OPENNESS } from '../utils/shadeHelpers';
+import { DeviceIcon } from './icons/DeviceIcons';
 import { ShadeOpenCloseButtons } from './ui/ShadeOpenCloseButtons';
 
 interface ShadeCardProps {
   device: Light;
-  onPositionChange: (position: number) => void;
+  onUpdate: (state: Partial<DeviceState>) => void;
   onClick: () => void;
   onAssignRoom?: () => void;
 }
 
-// Check if device is a Blind Tilt type
-function isBlindTilt(device: Light): boolean {
-  return device.deviceType === 'Blind Tilt';
-}
-
-function ShadeCardComponent({ device, onPositionChange, onClick }: ShadeCardProps) {
+function ShadeCardComponent({ device, onUpdate, onClick }: ShadeCardProps) {
   const { state, name, reachable } = device;
-  const position = state.brightness;
-  const isTilt = isBlindTilt(device);
-  const visualOpenness = getVisualOpenness(position, isTilt);
+  const isTilt = device.deviceType === 'Blind Tilt';
+  const iconType = getDeviceIconType(device);
 
-  // Get shade icon based on position
-  const getShadeIcon = () => {
-    const openPercent = visualOpenness;
-    return (
-      <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <rect x="3" y="3" width="18" height="18" rx="2" />
-        <rect 
-          x="4" 
-          y="4" 
-          width="16" 
-          height={16 - (openPercent / 100) * 14} 
-          fill="currentColor" 
-          opacity="0.6"
-        />
-        <line x1="12" y1="3" x2="12" y2="21" strokeOpacity="0.3" />
-        <line x1="3" y1="12" x2="21" y2="12" strokeOpacity="0.3" />
-      </svg>
-    );
-  };
+  // Visual openness for glow and icon (0-100)
+  const visualOpenness = isTilt
+    ? TILT_VISUAL_OPENNESS[state.tiltPosition ?? 'open']
+    : state.brightness;
 
   // Subtle glow when open
   const glowStyle = reachable && visualOpenness > 0
@@ -47,11 +28,19 @@ function ShadeCardComponent({ device, onPositionChange, onClick }: ShadeCardProp
     : {};
 
   const handleOpen = () => {
-    onPositionChange(isTilt ? 0 : 100);
+    if (isTilt) {
+      onUpdate({ tiltPosition: 'open', on: true });
+    } else {
+      onUpdate({ brightness: 100, on: true });
+    }
   };
 
   const handleClose = () => {
-    onPositionChange(isTilt ? 100 : 0); // closes down for Blind Tilt
+    if (isTilt) {
+      onUpdate({ tiltPosition: 'closed-down', on: false });
+    } else {
+      onUpdate({ brightness: 0, on: false });
+    }
   };
 
   return (
@@ -67,9 +56,7 @@ function ShadeCardComponent({ device, onPositionChange, onClick }: ShadeCardProp
       {/* Icon - centered and larger */}
       <div className="flex-1 flex items-center justify-center">
         <div className={`p-3 rounded-xl ${visualOpenness > 50 ? 'bg-blue-500/20' : 'bg-zinc-700/50'}`}>
-          <span className={visualOpenness > 0 ? 'text-blue-400' : 'text-zinc-500'}>
-            {getShadeIcon()}
-          </span>
+          <DeviceIcon iconType={iconType} isOn={true} position={visualOpenness} />
         </div>
       </div>
 
