@@ -3,6 +3,9 @@
 import json
 import logging
 import re
+import time
+
+from belle.mlx_lock import mlx_lock
 from typing import Any
 
 from pydantic import ValidationError
@@ -199,20 +202,23 @@ async def chat_async(
 
     logger.debug(f"Generated prompt: {prompt[:500]}...")
 
-    response_text = generate(
-        model,
-        tokenizer,
-        prompt=prompt,
-        max_tokens=settings.llm_max_tokens,
-        sampler=sampler,
-        verbose=False,
-    )
+    start_time = time.time()
+    with mlx_lock:
+        response_text = generate(
+            model,
+            tokenizer,
+            prompt=prompt,
+            max_tokens=settings.llm_max_tokens,
+            sampler=sampler,
+            verbose=False,
+        )
+    elapsed = time.time() - start_time
 
     if response_text is None:
         response_text = ""
         logger.warning("LLM returned None response")
 
-    logger.info(f"LLM response ({len(response_text)} chars): {response_text[:200]}...")
+    logger.info(f"LLM took {elapsed:.1f}s ({len(response_text)} chars): {response_text[:200]}...")
 
     # Check for tool calls
     tool_calls = _parse_tool_calls(response_text)
@@ -242,14 +248,18 @@ async def chat_async(
             add_generation_prompt=True,
         )
 
-        final_response = generate(
-            model,
-            tokenizer,
-            prompt=followup_prompt,
-            max_tokens=150,
-            sampler=sampler,
-            verbose=False,
-        )
+        start_time = time.time()
+        with mlx_lock:
+            final_response = generate(
+                model,
+                tokenizer,
+                prompt=followup_prompt,
+                max_tokens=150,
+                sampler=sampler,
+                verbose=False,
+            )
+        elapsed = time.time() - start_time
+        logger.info(f"LLM follow-up took {elapsed:.1f}s")
 
         if final_response is None:
             final_response = response_text

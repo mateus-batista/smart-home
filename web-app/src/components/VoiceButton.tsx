@@ -25,12 +25,14 @@ export function VoiceButton({ onAction, className = '' }: VoiceButtonProps) {
     isConnected,
     isRecording,
     isProcessing,
+    isSpeechDetected,
     transcript,
     response,
     error,
-    startRecording,
-    stopRecording,
+    startListening,
+    stopListening,
     connect,
+    unlockAudio,
   } = useVoiceAssistant({
     onResponse: (_, actions) => {
       setRecentActions(actions);
@@ -41,36 +43,30 @@ export function VoiceButton({ onAction, className = '' }: VoiceButtonProps) {
   // Lock body scroll when modal is open
   useBodyScrollLock(showModal);
 
-  // Toggle recording on/off
-  const handleRecordToggle = useCallback(() => {
-    if (isRecording) {
-      stopRecording();
-    } else if (isConnected && !isProcessing) {
-      startRecording();
+  // Start/stop listening when modal opens/closes
+  useEffect(() => {
+    if (showModal && isConnected) {
+      startListening();
     }
-  }, [isRecording, isConnected, isProcessing, startRecording, stopRecording]);
+  }, [showModal, isConnected, startListening]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (isRecording) {
-        stopRecording();
-      }
+      stopListening();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Close with exit animation
   const handleCloseModal = useCallback(() => {
-    if (isRecording) {
-      stopRecording();
-    }
+    stopListening();
     setIsExiting(true);
     setTimeout(() => {
       setShowModal(false);
       setIsExiting(false);
     }, 300);
-  }, [isRecording, stopRecording]);
+  }, [stopListening]);
 
   // Handle backdrop click — only close when idle
   const handleBackdropClick = useCallback((e: React.MouseEvent) => {
@@ -80,19 +76,21 @@ export function VoiceButton({ onAction, className = '' }: VoiceButtonProps) {
   }, [isRecording, isProcessing, handleCloseModal]);
 
   // Derive orb state
-  const orbState: OrbState = isRecording ? 'listening' : 'idle';
+  const orbState: OrbState = (isSpeechDetected || isRecording) ? 'listening' : 'idle';
 
   const statusText = !isConnected
     ? 'Connecting...'
-    : isRecording
+    : isProcessing
+    ? 'Thinking...'
+    : (isSpeechDetected || isRecording)
     ? 'Listening...'
-    : 'Tap to speak';
+    : 'Say something...';
 
   return (
     <>
       {/* Compact Header Button */}
       <button
-        onClick={() => setShowModal(true)}
+        onClick={() => { unlockAudio(); setShowModal(true); }}
         className={`
           relative flex items-center gap-2 px-3 py-1.5 rounded-full
           transition-all duration-300 ease-out
@@ -131,8 +129,7 @@ export function VoiceButton({ onAction, className = '' }: VoiceButtonProps) {
           <button
             onClick={handleCloseModal}
             className="absolute top-4 right-4 z-20 p-3 rounded-full hover:bg-white/10 transition-colors"
-            style={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}
-            style={{ top: 'calc(1rem + var(--safe-area-inset-top, 0px))' }}
+            style={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', top: 'calc(1rem + var(--safe-area-inset-top, 0px))' }}
           >
             <X className="w-6 h-6 text-zinc-400" />
           </button>
@@ -147,8 +144,8 @@ export function VoiceButton({ onAction, className = '' }: VoiceButtonProps) {
             <VoiceOrb
               state={orbState}
               active={isRecording || isProcessing}
-              onClick={handleRecordToggle}
-              disabled={!isConnected || isProcessing}
+              onClick={() => {}} // No-op — VAD controls recording
+              disabled={!isConnected}
               size="lg"
             />
           </div>
@@ -167,7 +164,7 @@ export function VoiceButton({ onAction, className = '' }: VoiceButtonProps) {
             <p
               className="text-sm font-medium transition-colors duration-500"
               style={{
-                color: isRecording ? '#d4a054' : '#71717a',
+                color: (isSpeechDetected || isRecording) ? '#d4a054' : '#71717a',
               }}
             >
               {statusText}

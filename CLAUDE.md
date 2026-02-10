@@ -114,3 +114,7 @@ Voice Assistant (all prefixed with `BELLE_`):
 - `BELLE_OPENAI_MODEL` - OpenAI model (default: `gpt-4o-mini`)
 - `BELLE_ANTHROPIC_API_KEY` - Anthropic API key (required when provider=anthropic)
 - `BELLE_ANTHROPIC_MODEL` - Anthropic model (default: `claude-haiku-4-5-20251001`)
+- `BELLE_TTS_ENABLED` - Enable TTS (default: `false`)
+- `BELLE_TTS_MODEL` - TTS model (default: `mlx-community/Kokoro-82M-bf16`)
+- `BELLE_TTS_VOICE` - Kokoro voice ID (default: `af_heart`)
+- `BELLE_TTS_SPEED` - TTS speech speed (default: `1.0`)

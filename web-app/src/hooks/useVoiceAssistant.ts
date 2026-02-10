@@ -7,7 +7,7 @@ export type VoiceAction = {
 };
 
 export type VoiceResponse = {
-  type: 'transcript' | 'response' | 'error';
+  type: 'transcript' | 'response' | 'error' | 'no_speech';
   transcript?: string;
   text?: string;
   language?: string;
@@ -76,12 +76,19 @@ function getDefaultWsUrl(): string {
   return `${protocol}//${host}${wsPath}`;
 }
 
+// VAD tuning constants
+const SPEECH_THRESHOLD = 30;    // 0-255 avg frequency energy to trigger recording
+const SILENCE_THRESHOLD = 15;   // energy below this = silence
+const SILENCE_DURATION = 1200;  // ms of continuous silence before auto-stop
+const VAD_POLL_INTERVAL = 80;   // ms between energy checks
+
 export function useVoiceAssistant(options: UseVoiceAssistantOptions = {}) {
   const { wsUrl = getDefaultWsUrl() } = options;
 
   const [isConnected, setIsConnected] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSpeechDetected, setIsSpeechDetected] = useState(false);
   const [transcript, setTranscript] = useState<string | null>(null);
   const [response, setResponse] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -91,19 +98,54 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions = {}) {
   const audioChunksRef = useRef<Blob[]>([]);
   const mountedRef = useRef(false);
 
+  // VAD refs
+  const streamRef = useRef<MediaStream | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const vadIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const silenceStartRef = useRef<number | null>(null);
+  const isProcessingRef = useRef(false);
+  const isRecordingRef = useRef(false);
+  const mimeTypeRef = useRef<string | undefined>(undefined);
+
+  // Keep refs in sync with state
+  isProcessingRef.current = isProcessing;
+  isRecordingRef.current = isRecording;
+
   // Store callbacks in refs to avoid recreating connect on every render
   const callbacksRef = useRef(options);
   callbacksRef.current = options;
 
-  // Play audio response
+  // Play audio response using AudioContext (works on mobile where new Audio().play() is blocked)
   const playAudioResponse = useCallback((audioBase64: string) => {
     try {
-      const audio = new Audio(`data:audio/wav;base64,${audioBase64}`);
-      audio.play().catch((err) => {
-        console.error('Failed to play audio:', err);
+      // Reuse the VAD AudioContext (already unlocked by user gesture) or create one
+      let ctx = audioContextRef.current;
+      if (!ctx || ctx.state === 'closed') {
+        ctx = new AudioContext();
+        audioContextRef.current = ctx;
+      }
+      // Resume if suspended (mobile Safari pauses AudioContext in background)
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+
+      // Decode base64 WAV and play through AudioContext
+      const binaryString = atob(audioBase64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      ctx.decodeAudioData(bytes.buffer.slice(0)).then((audioBuffer) => {
+        const source = ctx!.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(ctx!.destination);
+        source.start();
+      }).catch((err) => {
+        console.error('Failed to decode audio:', err);
       });
     } catch (err) {
-      console.error('Failed to create audio element:', err);
+      console.error('Failed to play audio:', err);
     }
   }, []);
 
@@ -174,6 +216,9 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions = {}) {
               playAudioResponse(data.audio);
               callbacksRef.current.onAudioResponse?.(data.audio);
             }
+          } else if (data.type === 'no_speech') {
+            // Server detected no speech in audio — resume VAD
+            setIsProcessing(false);
           } else if (data.type === 'error') {
             setIsProcessing(false);
             setError(data.message || 'Unknown error');
@@ -264,7 +309,7 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions = {}) {
       'audio/wav',
       '', // Default/fallback
     ];
-    
+
     for (const type of types) {
       if (type === '' || MediaRecorder.isTypeSupported(type)) {
         console.log('[Voice] Using mimeType:', type || 'default');
@@ -274,26 +319,67 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions = {}) {
     return undefined;
   }, []);
 
-  // Start recording
-  const startRecording = useCallback(async () => {
-    if (isRecording) return;
+  // Start a MediaRecorder on the existing stream (called by VAD when speech detected)
+  const startRecorderOnStream = useCallback(() => {
+    const stream = streamRef.current;
+    if (!stream || isRecordingRef.current) return;
 
-    // Check if we're in a secure context (HTTPS or localhost)
+    const mimeType = mimeTypeRef.current;
+    const options: MediaRecorderOptions = {};
+    if (mimeType) {
+      options.mimeType = mimeType;
+    }
+
+    const mediaRecorder = new MediaRecorder(stream, options);
+    const actualMimeType = mediaRecorder.mimeType || 'audio/webm';
+
+    audioChunksRef.current = [];
+
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        audioChunksRef.current.push(event.data);
+      }
+    };
+
+    mediaRecorder.onstop = async () => {
+      // Don't stop stream tracks — stream stays open for VAD
+      const audioBlob = new Blob(audioChunksRef.current, { type: actualMimeType });
+      await sendAudio(audioBlob);
+    };
+
+    mediaRecorderRef.current = mediaRecorder;
+    mediaRecorder.start(100);
+    setIsRecording(true);
+    setError(null);
+    setTranscript(null);
+    setResponse(null);
+  }, [sendAudio]);
+
+  // Stop the current MediaRecorder (called by VAD on silence)
+  const stopRecorder = useCallback(() => {
+    if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') return;
+    mediaRecorderRef.current.stop();
+    mediaRecorderRef.current = null;
+    setIsRecording(false);
+    setIsProcessing(true);
+    setIsSpeechDetected(false);
+  }, []);
+
+  // Start always-on listening with VAD
+  const startListening = useCallback(async () => {
+    if (streamRef.current) return; // already listening
+
     if (!window.isSecureContext) {
       setError('Microphone requires HTTPS. Use localhost or enable HTTPS.');
-      callbacksRef.current.onError?.('Microphone requires HTTPS');
       return;
     }
 
-    // Check if getUserMedia is available
     if (!navigator.mediaDevices?.getUserMedia) {
       setError('Microphone not supported in this browser');
-      callbacksRef.current.onError?.('Microphone not supported');
       return;
     }
 
     try {
-      // Request microphone access
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           sampleRate: { ideal: 16000 },
@@ -303,43 +389,74 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions = {}) {
         },
       });
 
-      // Create MediaRecorder with supported mimeType
-      const mimeType = getSupportedMimeType();
-      const options: MediaRecorderOptions = {};
-      if (mimeType) {
-        options.mimeType = mimeType;
-      }
-      
-      const mediaRecorder = new MediaRecorder(stream, options);
-      const actualMimeType = mediaRecorder.mimeType || 'audio/webm';
+      streamRef.current = stream;
 
-      audioChunksRef.current = [];
+      // Determine supported mime type once
+      mimeTypeRef.current = getSupportedMimeType();
 
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
+      // Set up AnalyserNode for energy monitoring
+      // Reuse AudioContext if already unlocked by user gesture, otherwise create new
+      const audioContext = (audioContextRef.current && audioContextRef.current.state !== 'closed')
+        ? audioContextRef.current
+        : new AudioContext();
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.5;
+      source.connect(analyser);
+
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+
+      // VAD polling loop
+      const frequencyData = new Uint8Array(analyser.frequencyBinCount);
+
+      vadIntervalRef.current = setInterval(() => {
+        if (!analyserRef.current) return;
+
+        analyserRef.current.getByteFrequencyData(frequencyData);
+
+        // Compute average energy
+        let sum = 0;
+        for (let i = 0; i < frequencyData.length; i++) {
+          sum += frequencyData[i];
         }
-      };
+        const avgEnergy = sum / frequencyData.length;
 
-      mediaRecorder.onstop = async () => {
-        // Stop all tracks
-        stream.getTracks().forEach((track) => track.stop());
+        // Skip VAD while processing server response
+        if (isProcessingRef.current) {
+          silenceStartRef.current = null;
+          return;
+        }
 
-        // Convert to WAV and send
-        const audioBlob = new Blob(audioChunksRef.current, { type: actualMimeType });
-        await sendAudio(audioBlob);
-      };
+        if (!isRecordingRef.current) {
+          // Not recording — check if speech started
+          if (avgEnergy > SPEECH_THRESHOLD) {
+            silenceStartRef.current = null;
+            setIsSpeechDetected(true);
+            startRecorderOnStream();
+          }
+        } else {
+          // Currently recording — check for silence
+          if (avgEnergy < SILENCE_THRESHOLD) {
+            if (silenceStartRef.current === null) {
+              silenceStartRef.current = Date.now();
+            } else if (Date.now() - silenceStartRef.current > SILENCE_DURATION) {
+              // Sustained silence — stop recording and send
+              silenceStartRef.current = null;
+              stopRecorder();
+            }
+          } else {
+            // Speech continuing
+            silenceStartRef.current = null;
+          }
+        }
+      }, VAD_POLL_INTERVAL);
 
-      mediaRecorderRef.current = mediaRecorder;
-      mediaRecorder.start(100); // Collect data every 100ms
-      setIsRecording(true);
       setError(null);
-      setTranscript(null);
-      setResponse(null);
     } catch (err: unknown) {
-      console.error('Failed to start recording:', err);
-      
-      // Provide specific error messages
+      console.error('Failed to start listening:', err);
+
       let errorMessage = 'Microphone access denied';
       if (err instanceof Error) {
         if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
@@ -356,21 +473,54 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions = {}) {
           errorMessage = `Microphone error: ${err.message}`;
         }
       }
-      
+
       setError(errorMessage);
       callbacksRef.current.onError?.(errorMessage);
     }
-  }, [isRecording, sendAudio, getSupportedMimeType]);
+  }, [getSupportedMimeType, startRecorderOnStream, stopRecorder]);
 
-  // Stop recording
-  const stopRecording = useCallback(() => {
-    if (!isRecording || !mediaRecorderRef.current) return;
+  // Stop listening — full teardown
+  const stopListening = useCallback(() => {
+    // Clear VAD interval
+    if (vadIntervalRef.current) {
+      clearInterval(vadIntervalRef.current);
+      vadIntervalRef.current = null;
+    }
 
-    mediaRecorderRef.current.stop();
-    mediaRecorderRef.current = null;
+    // Stop MediaRecorder if active
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current = null;
+    }
     setIsRecording(false);
-    setIsProcessing(true);
-  }, [isRecording]);
+
+    // Close AudioContext
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    analyserRef.current = null;
+
+    // Stop all tracks on stream
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+
+    setIsSpeechDetected(false);
+    silenceStartRef.current = null;
+  }, []);
+
+  // Unlock AudioContext for mobile — must be called from a user gesture (tap/click)
+  // Mobile browsers require AudioContext creation/resume within a user interaction
+  const unlockAudio = useCallback(() => {
+    if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+      audioContextRef.current = new AudioContext();
+    }
+    if (audioContextRef.current.state === 'suspended') {
+      audioContextRef.current.resume();
+    }
+  }, []);
 
   // Send text message (for testing without microphone)
   const sendText = useCallback((text: string) => {
@@ -407,6 +557,7 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions = {}) {
     return () => {
       mountedRef.current = false;
       clearTimeout(timeoutId);
+      stopListening();
       disconnect();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -416,13 +567,15 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions = {}) {
     isConnected,
     isRecording,
     isProcessing,
+    isSpeechDetected,
     transcript,
     response,
     error,
     connect,
     disconnect,
-    startRecording,
-    stopRecording,
+    startListening,
+    stopListening,
     sendText,
+    unlockAudio,
   };
 }

@@ -1,4 +1,4 @@
-"""Text-to-Speech module using Parler-TTS for Belle's voice."""
+"""Text-to-Speech module using Kokoro-82M via mlx-audio for Belle's voice."""
 
 import io
 import logging
@@ -8,122 +8,102 @@ import wave
 import numpy as np
 
 from belle.config import settings
+from belle.mlx_lock import mlx_lock
 
 logger = logging.getLogger(__name__)
 
-# Lazy-loaded model and tokenizer
-_model = None
-_tokenizer = None
-_device = None
+# Lazy-loaded pipeline
+_pipeline = None
 
-# Voice description for Belle - keep it short for faster processing
-BELLE_VOICE_DESCRIPTION = "A warm female voice speaking clearly at a moderate pace."
+# Kokoro sample rate
+KOKORO_SAMPLE_RATE = 24000
 
 
 def _load_model():
-    """Load Parler-TTS model lazily on first use."""
-    global _model, _tokenizer, _device
+    """Load Kokoro TTS pipeline lazily on first use."""
+    global _pipeline
 
-    if _model is not None:
-        return _model, _tokenizer, _device
+    if _pipeline is not None:
+        return _pipeline
 
     if not settings.tts_enabled:
         logger.warning("TTS is disabled. Enable with BELLE_TTS_ENABLED=true")
-        return None, None, None
+        return None
 
     logger.info(f"Loading TTS model: {settings.tts_model}")
 
     try:
-        import torch
-        from parler_tts import ParlerTTSForConditionalGeneration
-        from transformers import AutoTokenizer
+        from mlx_audio.tts.utils import load_model
 
-        # Determine device
-        if torch.backends.mps.is_available():
-            _device = "mps"
-        elif torch.cuda.is_available():
-            _device = "cuda"
-        else:
-            _device = "cpu"
+        model = load_model(settings.tts_model)
 
-        logger.info(f"Using device: {_device}")
+        from mlx_audio.tts.models.kokoro.pipeline import KokoroPipeline
 
-        # Load model
-        _model = ParlerTTSForConditionalGeneration.from_pretrained(
-            settings.tts_model,
-            torch_dtype=torch.float16 if _device in ("mps", "cuda") else torch.float32,
-        ).to(_device)
-
-        _model.eval()
-
-        _tokenizer = AutoTokenizer.from_pretrained(settings.tts_model)
+        _pipeline = KokoroPipeline(
+            model=model, repo_id=settings.tts_model, lang_code="a"
+        )
 
         logger.info("TTS model loaded successfully")
-        return _model, _tokenizer, _device
+        return _pipeline
 
     except ImportError as e:
         logger.error("TTS dependencies not installed")
         logger.error(f"Import error: {e}")
-        return None, None, None
+        return None
     except Exception as e:
         logger.error(f"Failed to load TTS model: {e}")
-        return None, None, None
+        return None
 
 
 def synthesize_speech(
     text: str,
-    voice_description: str | None = None,
+    voice: str | None = None,
 ) -> np.ndarray | None:
     """
     Synthesize speech from text.
 
     Args:
         text: The text to speak
-        voice_description: Optional voice description (uses Belle's voice by default)
+        voice: Optional Kokoro voice ID (e.g. 'af_heart', 'am_adam')
 
     Returns:
         Audio as numpy array (float32, mono) or None if TTS is disabled/unavailable
     """
-    model, tokenizer, device = _load_model()
+    pipeline = _load_model()
 
-    if model is None:
+    if pipeline is None:
         logger.warning("TTS not available, returning None")
         return None
 
-    import torch
-
     start_time = time.time()
 
-    # Use Belle's voice description by default
-    description = voice_description or settings.tts_voice_description or BELLE_VOICE_DESCRIPTION
+    voice_id = voice or settings.tts_voice
+    speed = settings.tts_speed
 
-    # Tokenize inputs
-    description_tokens = tokenizer(description, return_tensors="pt")
-    prompt_tokens = tokenizer(text, return_tensors="pt")
+    # Generate audio — Kokoro returns a generator of Result(graphemes, phonemes, audio)
+    # audio chunks are mx.array, convert to numpy
+    # Hold the MLX lock to prevent Metal command buffer conflicts
+    chunks = []
+    with mlx_lock:
+        for result in pipeline(text, voice=voice_id, speed=speed):
+            if result.audio is not None:
+                chunk = np.array(result.audio, dtype=np.float32).squeeze()
+                chunks.append(chunk)
 
-    # Generate audio
-    with torch.inference_mode():
-        generation = model.generate(
-            input_ids=description_tokens.input_ids.to(device),
-            attention_mask=description_tokens.attention_mask.to(device),
-            prompt_input_ids=prompt_tokens.input_ids.to(device),
-            prompt_attention_mask=prompt_tokens.attention_mask.to(device),
-        )
+    if not chunks:
+        logger.warning("TTS produced no audio chunks")
+        return None
 
-    # Convert to numpy
-    audio = generation.cpu().numpy().squeeze()
+    # Concatenate all chunks into a single array
+    audio = np.concatenate(chunks)
 
-    # Normalize to float32 range [-1, 1]
-    if audio.dtype != np.float32:
-        audio = audio.astype(np.float32)
-
-    # Normalize if needed
+    # Normalize to [-1, 1]
     max_val = np.abs(audio).max()
     if max_val > 1.0:
         audio = audio / max_val
 
     elapsed = time.time() - start_time
-    audio_duration = len(audio) / 44100  # Parler outputs at 44.1kHz
+    audio_duration = len(audio) / KOKORO_SAMPLE_RATE
     logger.info(f"TTS: {len(text)} chars -> {audio_duration:.1f}s audio in {elapsed:.1f}s")
 
     return audio
@@ -131,21 +111,21 @@ def synthesize_speech(
 
 def synthesize_speech_to_wav(
     text: str,
-    voice_description: str | None = None,
-    sample_rate: int = 44100,
+    voice: str | None = None,
+    sample_rate: int = KOKORO_SAMPLE_RATE,
 ) -> bytes | None:
     """
     Synthesize speech and return as WAV bytes.
 
     Args:
         text: The text to speak
-        voice_description: Optional voice description
-        sample_rate: Output sample rate (Parler-TTS outputs at 44100 Hz)
+        voice: Optional Kokoro voice ID
+        sample_rate: Output sample rate (Kokoro outputs at 24000 Hz)
 
     Returns:
         WAV file as bytes, or None if TTS is unavailable
     """
-    audio = synthesize_speech(text, voice_description)
+    audio = synthesize_speech(text, voice)
 
     if audio is None:
         return None
@@ -166,20 +146,20 @@ def synthesize_speech_to_wav(
 
 async def synthesize_speech_async(
     text: str,
-    voice_description: str | None = None,
+    voice: str | None = None,
 ) -> np.ndarray | None:
     """Async wrapper for speech synthesis (runs in thread pool)."""
     import asyncio
-    return await asyncio.to_thread(synthesize_speech, text, voice_description)
+    return await asyncio.to_thread(synthesize_speech, text, voice)
 
 
 async def synthesize_speech_to_wav_async(
     text: str,
-    voice_description: str | None = None,
+    voice: str | None = None,
 ) -> bytes | None:
     """Async wrapper for WAV synthesis (runs in thread pool)."""
     import asyncio
-    return await asyncio.to_thread(synthesize_speech_to_wav, text, voice_description)
+    return await asyncio.to_thread(synthesize_speech_to_wav, text, voice)
 
 
 def is_tts_available() -> bool:
@@ -188,8 +168,8 @@ def is_tts_available() -> bool:
         return False
 
     try:
-        model, _, _ = _load_model()
-        return model is not None
+        pipeline = _load_model()
+        return pipeline is not None
     except Exception:
         return False
 

@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     smart_home_api_url: str = "http://localhost:3001/api"
 
     # Whisper STT settings
-    whisper_model: str = "mlx-community/whisper-large-v3-turbo"
+    whisper_model: str = "mlx-community/whisper-large-v3-mlx"
     whisper_language: str | None = None  # Auto-detect language (None = auto)
     whisper_initial_prompt: str | None = None  # Disabled to prevent hallucinations
     whisper_temperature: float = 0.0  # 0 = deterministic greedy decoding
@@ -31,7 +31,7 @@ class Settings(BaseSettings):
 
     # LLM settings
     llm_provider: str = "local"  # "local" | "openai" | "anthropic"
-    llm_model: str = "mlx-community/Qwen2.5-14B-Instruct-4bit"
+    llm_model: str = "mlx-community/Qwen3-8B-4bit"
     llm_max_tokens: int = 512
     llm_temperature: float = 0.5  # Lower temperature for more focused responses
 
@@ -41,10 +41,11 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-haiku-4-5-20251001"
 
-    # TTS settings (Parler TTS - local neural TTS, optional)
-    tts_enabled: bool = False
-    tts_model: str = "parler-tts/parler-tts-mini-v1"
-    tts_voice_description: str = "A warm female voice speaking clearly at a moderate pace."
+    # TTS settings (Kokoro via mlx-audio - local neural TTS, optional)
+    tts_enabled: bool = True
+    tts_model: str = "mlx-community/Kokoro-82M-bf16"
+    tts_voice: str = "af_heart"
+    tts_speed: float = 1.0
 
     # Audio settings
     sample_rate: int = 16000

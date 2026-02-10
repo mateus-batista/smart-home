@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 from typing import Any
 
 from pydantic import BaseModel
@@ -117,12 +118,23 @@ async def execute_tool_calls(tool_calls: list[ToolCall]) -> list[dict[str, Any]]
     return tool_results
 
 
+def _strip_think_blocks(text: str) -> str:
+    """Strip <think>...</think> reasoning blocks from model output (e.g. Qwen3)."""
+    match = re.search(r"<think>(.*?)</think>", text, flags=re.DOTALL)
+    if match:
+        thinking = match.group(1).strip()
+        char_count = len(thinking)
+        logger.info(f"LLM thinking: {char_count} chars — {thinking[:150]}{'...' if char_count > 150 else ''}")
+    return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+
+
 def format_response(
     final_response: str,
     tool_calls: list[ToolCall] | None,
     tool_results: list[dict[str, Any]],
 ) -> dict[str, Any]:
     """Format the final response dict returned by all providers."""
+    final_response = _strip_think_blocks(final_response)
     return {
         "response": final_response,
         "tool_calls": [

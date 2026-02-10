@@ -7,6 +7,7 @@ from typing import BinaryIO
 import numpy as np
 
 from belle.config import settings
+from belle.mlx_lock import mlx_lock
 
 logger = logging.getLogger(__name__)
 
@@ -91,8 +92,9 @@ def transcribe_audio(
 
     logger.debug(f"Transcribing audio with options: {options}")
 
-    # Perform transcription
-    result = mlx_whisper.transcribe(audio, **options)
+    # Perform transcription (hold MLX lock to prevent Metal command buffer conflicts)
+    with mlx_lock:
+        result = mlx_whisper.transcribe(audio, **options)
 
     # Calculate confidence metrics from segments
     segments = result.get("segments", [])
@@ -158,6 +160,7 @@ def _calculate_confidence(segments: list[dict]) -> dict:
         "confidence_score": round(confidence_score, 3),
         "quality": quality,
     }
+
 
 
 def is_silent_audio(audio: np.ndarray, threshold: float = 0.01) -> bool:
