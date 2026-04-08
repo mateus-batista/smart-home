@@ -11,7 +11,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Configuration
 const config = {
   port: parseInt(process.env.PROXY_PORT || '8443'),
-  webApp: process.env.WEB_APP_URL || 'http://localhost:5173',
+  webApp: process.env.WEB_APP_URL || 'http://localhost:5174',
   server: process.env.SERVER_URL || 'http://localhost:3001',
   voiceAssistant: process.env.VOICE_ASSISTANT_URL || 'http://localhost:3002',
 };

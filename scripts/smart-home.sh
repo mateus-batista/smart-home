@@ -45,7 +45,7 @@ typeset -A SERVICE_PORTS
 SERVICE_PORTS=(
     server "3001"
     voice-assistant "3002"
-    web-app "5173"
+    web-app "5174"
     proxy "8443"
 )
 

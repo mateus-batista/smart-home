@@ -16,3 +16,6 @@ src/generated/
 
 # OS files
 .DS_Store
+
+# Claude
+.claude/
